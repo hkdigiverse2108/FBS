@@ -123,8 +123,9 @@ export const getItems = async (req, res) => {
 
 export const getItem = async (req, res) => {
     reqInfo(req);
+    let { id } = req.params
     try {
-        const item = await itemModel.findById(req.params.id);
+        const item = await itemModel.findOne({ _id: new ObjectId(id), isDeleted: false });
         if (!item) return res.status(404).json(new apiResponse(404, responseMessage.getDataNotFound("item"), {}, {}))
         return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("item"), item, {}))
     } catch (error: any) {
@@ -132,8 +133,6 @@ export const getItem = async (req, res) => {
         return res.status(400).json(new apiResponse(400, responseMessage.internalServerError, {}, error));
     }
 };
-
-
 
 export const deleteItem = async (req, res) => {
     reqInfo(req);
