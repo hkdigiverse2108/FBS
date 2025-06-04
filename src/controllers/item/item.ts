@@ -106,8 +106,8 @@ export const getItems = async (req, res) => {
         ]);
 
 
-        return res.status(200).json(new apiResponse(200, responseMessage?.getDataSuccess("salesman"), {
-            salesman_data: response[0]?.data || [],
+        return res.status(200).json(new apiResponse(200, responseMessage?.getDataSuccess("item"), {
+            item_data: response[0]?.data || [],
             totalData: response[0]?.data_count[0]?.count || 0,
             state: {
                 page: page,
