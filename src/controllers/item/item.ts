@@ -41,6 +41,9 @@ export const updateItem = async (req, res) => {
         let item = await itemModel.findOne({ _id: new ObjectId(body.itemId), isDeleted: false }).lean()
         if (!item) return res.status(404).json(new apiResponse(404, responseMessage.getDataNotFound("item"), {}, {}))
 
+        let isExist = await itemModel.findOne({ name: body.name, isDeleted: false, _id: { $ne: new ObjectId(body.itemId) } })   
+        if (isExist) return res.status(404).json(new apiResponse(404, responseMessage?.dataAlreadyExist(body.name), {}, {}));
+
         if (body.pricingType === "weight") {
             const pricePerGram = body.perKgPrice / 1000;
             const costPerGram = body.perKgCost / 1000;
