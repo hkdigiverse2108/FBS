@@ -139,8 +139,9 @@ export const getItem = async (req, res) => {
 
 export const deleteItem = async (req, res) => {
     reqInfo(req);
+    let { id } = req.params
     try {
-        const item = await itemModel.findOneAndUpdate({ _id: new ObjectId(req.params.id) }, { isDeleted: true });
+        const item = await itemModel.findOneAndUpdate({ _id: new ObjectId(id) }, { isDeleted: true });
         if (!item) return res.status(404).json(new apiResponse(404, responseMessage.getDataNotFound("item"), {}, {}))
         return res.status(200).json(new apiResponse(200, responseMessage.deleteDataSuccess("item"), {}, {}))
     } catch (error: any) {
