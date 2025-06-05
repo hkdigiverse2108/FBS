@@ -4,6 +4,9 @@ import * as saleController from '../controllers/sale/sale';
 const router = express.Router();
 
 router.post('/add', saleController.createSale);
+router.get('/sold-items', saleController.getSoldItems);
+router.get('/collection', saleController.getCollection);
+router.get('/remaining-stock', saleController.getRemainingStock);
 router.get('/', saleController.getSales);
 router.get('/:id', saleController.getSale);
 

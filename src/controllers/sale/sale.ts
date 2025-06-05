@@ -144,4 +144,131 @@ export const getSale = async (req, res) => {
         console.log(error)
         return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error))
     }
-}; 
+};
+
+export const getSoldItems = async (req, res) => {
+    reqInfo(req);
+    let { dateFilter } = req.body, { user } = req.headers;
+    try {
+        const soldItems = await saleModel.aggregate([
+            { $unwind: "$items" },
+            {
+                $group: {
+                    _id: "$items.itemId",
+                    totalQty: { $sum: "$items.quantityGram" }
+                }
+            },
+            {
+                $lookup: {
+                    from: "items",
+                    localField: "_id",
+                    foreignField: "_id",
+                    as: "item"
+                }
+            },
+            { $unwind: "$item" },
+            {
+                $project: {
+                    itemName: "$item.name",
+                    totalQty: 1
+                }
+            }
+        ]);
+
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("sold items"), soldItems, {}));
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error));
+    }
+};
+
+export const getCollection = async (req, res) => {
+    reqInfo(req);
+    let { user } = req.headers;
+    try {
+        console.log("user => ",user);
+        const collection = await saleModel.aggregate([
+            { $match: { storeId: new ObjectId(user.storeId) } },
+            { $unwind: "$items" },
+            {
+                $group: {
+                    _id: { itemId: "$items.itemId", paymentMode: "$paymentMode" },
+                    totalAmount: { $sum: "$items.totalPrice" }
+                }
+            },
+            {
+                $group: {
+                    _id: "$_id.itemId",
+                    cash: {
+                        $sum: {
+                            $cond: [{ $eq: ["$_id.paymentMode", "cash"] }, "$totalAmount", 0]
+                        }
+                    },
+                    online: {
+                        $sum: {
+                            $cond: [{ $eq: ["$_id.paymentMode", "online"] }, "$totalAmount", 0]
+                        }
+                    }
+                }
+            },
+            {
+                $lookup: {
+                    from: "items",
+                    localField: "_id",
+                    foreignField: "_id",
+                    as: "item"
+                }
+            },
+            { $unwind: "$item" },
+            {
+                $project: {
+                    itemName: "$item.name",
+                    cash: 1,
+                    online: 1,
+                    total: { $add: ["$cash", "$online"] }
+                }
+            }
+        ]);
+
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("collection"), collection, {}));
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error));
+    }
+};
+
+export const getRemainingStock = async (req, res) => {
+    reqInfo(req);
+    let { dateFilter } = req.body, { user } = req.headers;
+    try {
+        const remaining = await stockModel.aggregate([
+            { $sort: { date: -1 } },
+            {
+                $group: {
+                    _id: "$itemId",
+                    closingStock: { $first: "$closingStock" }
+                }
+            },
+            {
+                $lookup: {
+                    from: "items",
+                    localField: "_id",
+                    foreignField: "_id",
+                    as: "item"
+                }
+            },
+            { $unwind: "$item" },
+            {
+                $project: {
+                    itemName: "$item.name",
+                    closingStock: 1
+                }
+            }
+        ]);
+
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("remaining stock"), remaining, {}));
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error));
+    }
+};

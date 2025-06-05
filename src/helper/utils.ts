@@ -41,25 +41,28 @@ export const calculateCostPerGram = (perKgCost: number): number => {
 // Generate invoice number
 export const generateInvoiceNumber = async (): Promise<string> => {
   const date = new Date();
-  const year = date.getFullYear().toString().slice(-2);
+  const year = date.getFullYear().toString(); // 4 digits
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
 
   // Get the last invoice number for today
+  const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+  const endOfDay = new Date(date.setHours(23, 59, 59, 999));
   const lastSale = await saleModel.findOne({
     date: {
-      $gte: new Date(date.setHours(0, 0, 0, 0)),
-      $lt: new Date(date.setHours(23, 59, 59, 999))
+      $gte: startOfDay,
+      $lt: endOfDay
     }
   }).sort({ invoiceNumber: -1 });
 
-  let sequence = '001';
+  let sequence = '000001';
   if (lastSale) {
-    const lastSequence = parseInt(lastSale.invoiceNumber.slice(-3));
-    sequence = (lastSequence + 1).toString().padStart(3, '0');
-  }
+    const lastSequence = parseInt(lastSale.invoiceNumber.slice(-6));
+    sequence = (lastSequence + 1).toString().padStart(6, '0');
+  } `
+  SD`
 
-  return `INV${year}${month}${day}${sequence}`;
+  return `${year}${month}${day}${sequence}`; // 14 characters
 };
 
 // Group sales by date/month/year
