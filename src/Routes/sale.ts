@@ -3,7 +3,7 @@ import * as saleController from '../controllers/sale/sale';
 
 const router = express.Router();
 
-router.post('/', saleController.createSale);
+router.post('/add', saleController.createSale);
 router.get('/', saleController.getSales);
 router.get('/:id', saleController.getSale);
 

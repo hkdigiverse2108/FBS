@@ -20,6 +20,7 @@ export interface ISale extends Document {
   total: number;
   totalCost: number;
   profit: number;
+  profitAmount: number;
   invoiceNumber: string;
   createdAt: Date;
   updatedAt: Date;
@@ -27,22 +28,21 @@ export interface ISale extends Document {
 
 const SaleSchema: Schema = new Schema({
   items: [{
-    itemId: { type: Schema.Types.ObjectId, ref: 'Item', required: true },
+    itemId: { type: Schema.Types.ObjectId, ref: 'item', required: true },
     quantityGram: { type: Number, required: true },
-    unitPrice: { type: Number, required: true },
-    totalPrice: { type: Number, required: true }
+    unitPrice: { type: Number },
+    totalPrice: { type: Number }
   }],
   paymentMode: { type: String, enum: ['cash', 'online'] },
   customerName: { type: String },
   mobile: { type: String },
-  userId: { type: Schema.Types.ObjectId, ref: 'User' },
+  userId: { type: Schema.Types.ObjectId, ref: 'user' },
+  storeId: { type: Schema.Types.ObjectId, ref: 'store' },
   date: { type: Date, default: new Date() },
-  time: { type: String, default: new Date().toLocaleTimeString() },
-  cgst: { type: Number, default: 0 },
-  sgst: { type: Number, default: 0 },
   total: { type: Number, default: 0 },
   totalCost: { type: Number, default: 0 },
   profit: { type: Number, default: 0 },
+  profitAmount: { type: Number, default: 0 },
   invoiceNumber: { type: String, unique: true }
 }, { timestamps: true });
 
