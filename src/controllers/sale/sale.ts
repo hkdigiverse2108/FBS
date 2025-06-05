@@ -51,7 +51,6 @@ export const createSale = async (req, res) => {
     let { user } = req.headers, { items, paymentMode, customerName, mobile } = req.body;
     try {
         const date = new Date();
-        const time = date.toLocaleTimeString();
 
         // Calculate totals and validate stock
         let total = 0;
