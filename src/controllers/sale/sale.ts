@@ -94,7 +94,6 @@ export const createSale = async (req, res) => {
             storeId: new ObjectId(user.storeId),
             userId: new ObjectId(user._id),
             date,
-            time,
             total,
             totalCost,
             profit,
