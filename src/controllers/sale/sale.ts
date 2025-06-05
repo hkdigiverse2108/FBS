@@ -186,7 +186,6 @@ export const getCollection = async (req, res) => {
     reqInfo(req);
     let { user } = req.headers;
     try {
-        console.log("user => ",user);
         const collection = await saleModel.aggregate([
             { $match: { storeId: new ObjectId(user.storeId) } },
             { $unwind: "$items" },
