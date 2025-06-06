@@ -10,7 +10,7 @@ export const createItem = async (req, res) => {
     try {
 
         let isExist = await itemModel.findOne({ name: body.name, isDeleted: false })
-        if (isExist) return res.status(404).json(new apiResponse(404, responseMessage?.dataAlreadyExist(body.name), {}, {}));
+        if (isExist) return res.status(404).json(new apiResponse(404, responseMessage?.dataAlreadyExist(body.name), {}, {}, {}));
 
         if (body.pricingType === "weight") {
             const pricePerGram = body.perKgPrice / 1000;
@@ -24,13 +24,13 @@ export const createItem = async (req, res) => {
         body.storeId = new ObjectId(user?.storeId)
 
         const response = await new itemModel(body).save();
-        if (!response) return res.status(404).json(new apiResponse(404, responseMessage?.addDataError, {}, {}));
+        if (!response) return res.status(404).json(new apiResponse(404, responseMessage?.addDataError, {}, {}, {}));
 
         let item = await itemModel.findOne({ _id: new ObjectId(response._id), isDeleted: false }).lean()
-        return res.status(200).json(new apiResponse(200, responseMessage?.addDataSuccess("item"), item, {}));
+        return res.status(200).json(new apiResponse(200, responseMessage?.addDataSuccess("item"), item, {}, {}));
     } catch (error) {
         console.log(error)
-        return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error));
+        return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error, {}));
     }
 };
 
@@ -39,10 +39,10 @@ export const updateItem = async (req, res) => {
     let body = req.body
     try {
         let item = await itemModel.findOne({ _id: new ObjectId(body.itemId), isDeleted: false }).lean()
-        if (!item) return res.status(404).json(new apiResponse(404, responseMessage.getDataNotFound("item"), {}, {}))
+        if (!item) return res.status(404).json(new apiResponse(404, responseMessage.getDataNotFound("item"), {}, {}, {}))
 
         let isExist = await itemModel.findOne({ name: body.name, isDeleted: false, _id: { $ne: new ObjectId(body.itemId) } })   
-        if (isExist) return res.status(404).json(new apiResponse(404, responseMessage?.dataAlreadyExist(body.name), {}, {}));
+        if (isExist) return res.status(404).json(new apiResponse(404, responseMessage?.dataAlreadyExist(body.name), {}, {}, {}));
 
         if (body.pricingType === "weight") {
             const pricePerGram = body.perKgPrice / 1000;
@@ -53,11 +53,11 @@ export const updateItem = async (req, res) => {
         }
 
         let response = await itemModel.findOneAndUpdate({ _id: new ObjectId(body.itemId), isDeleted: false }, body, { new: true }).lean()
-        if (!response) return res.status(404).json(new apiResponse(404, responseMessage.updateDataError("item"), {}, {}))
-        return res.status(200).json(new apiResponse(200, responseMessage.updateDataSuccess("item"), response, {}))
+        if (!response) return res.status(404).json(new apiResponse(404, responseMessage.updateDataError("item"), {}, {}, {}))
+        return res.status(200).json(new apiResponse(200, responseMessage.updateDataSuccess("item"), response, {}, {}))
     } catch (error) {
         console.log(error)
-        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error));
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
     }
 };
 
@@ -117,10 +117,10 @@ export const getItems = async (req, res) => {
                 limit: limit,
                 page_limit: Math.ceil(response[0]?.data_count[0]?.count / limit) || 1,
             },
-        }, {}))
+        }, {}, {}))
     } catch (error) {
         console.log(error)
-        return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error));
+        return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error, {}));
     }
 };
 
@@ -129,11 +129,11 @@ export const getItem = async (req, res) => {
     let { id } = req.params
     try {
         const item = await itemModel.findOne({ _id: new ObjectId(id), isDeleted: false });
-        if (!item) return res.status(404).json(new apiResponse(404, responseMessage.getDataNotFound("item"), {}, {}))
-        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("item"), item, {}))
+        if (!item) return res.status(404).json(new apiResponse(404, responseMessage.getDataNotFound("item"), {}, {}, {}))
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("item"), item, {}, {}))
     } catch (error: any) {
         console.log(error)
-        return res.status(400).json(new apiResponse(400, responseMessage.internalServerError, {}, error));
+        return res.status(400).json(new apiResponse(400, responseMessage.internalServerError, {}, error, {}));
     }
 };
 
@@ -142,9 +142,9 @@ export const deleteItem = async (req, res) => {
     let { id } = req.params
     try {
         const item = await itemModel.findOneAndUpdate({ _id: new ObjectId(id) }, { isDeleted: true });
-        if (!item) return res.status(404).json(new apiResponse(404, responseMessage.getDataNotFound("item"), {}, {}))
-        return res.status(200).json(new apiResponse(200, responseMessage.deleteDataSuccess("item"), {}, {}))
+        if (!item) return res.status(404).json(new apiResponse(404, responseMessage.getDataNotFound("item"), {}, {}, {}))
+        return res.status(200).json(new apiResponse(200, responseMessage.deleteDataSuccess("item"), {}, {}, {}))
     } catch (error: any) {
-        return res.status(400).json(new apiResponse(400, responseMessage.internalServerError, {}, error));
+        return res.status(400).json(new apiResponse(400, responseMessage.internalServerError, {}, error, {}));
     }
 };

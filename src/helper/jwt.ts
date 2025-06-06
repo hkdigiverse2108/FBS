@@ -19,20 +19,20 @@ export const adminJWT = async (req: Request, res: Response, next) => {
 
             result = await userModel.findOne({ _id: new ObjectId(isVerifyToken._id), isDeleted: false })
             if (!result) result = await salesmanModel.findOne({ _id: new ObjectId(isVerifyToken._id), isDeleted: false })
-            if (result?.isBlocked == true) return res.status(403).json(new apiResponse(403, responseMessage?.accountBlock, {}, {}));
+            if (result?.isBlocked == true) return res.status(403).json(new apiResponse(403, responseMessage?.accountBlock, {}, {}, {}));
             if (result?.isDeleted == false) {
                 // Set in Header Decode Token Information
                 req.headers.user = result
                 return next()
             } else {
-                return res.status(401).json(new apiResponse(401, responseMessage?.invalidToken, {}, {}))
+                return res.status(401).json(new apiResponse(401, responseMessage?.invalidToken, {}, {}, {}))
             }
         } catch (err) {
-            if (err.message == "invalid signature") return res.status(403).json(new apiResponse(403, responseMessage?.differentToken, {}, {}))
+            if (err.message == "invalid signature") return res.status(403).json(new apiResponse(403, responseMessage?.differentToken, {}, {}, {}))
             console.log(err)
-            return res.status(401).json(new apiResponse(401, responseMessage.invalidToken, {}, {}))
+            return res.status(401).json(new apiResponse(401, responseMessage.invalidToken, {}, {}, {}))
         }
     } else {
-        return res.status(401).json(new apiResponse(401, responseMessage?.tokenNotFound, {}, {}))
+        return res.status(401).json(new apiResponse(401, responseMessage?.tokenNotFound, {}, {}, {}))
     }
 }

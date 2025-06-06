@@ -55,38 +55,100 @@ export const createSale = async (req, res) => {
         // Calculate totals and validate stock
         let total = 0;
         let totalCost = 0;
+        let saleItems = [];
 
         for (const item of items) {
             const itemDetails = await itemModel.findOne({ _id: new ObjectId(item.itemId) }).lean();
             if (!itemDetails) {
-                return res.status(400).json(new apiResponse(400, responseMessage.getDataNotFound("item"), {}, {}))
+                return res.status(400).json(new apiResponse(400, responseMessage.getDataNotFound("item"), {}, {}, {}))
             }
 
-            // Get today's stock
-            const todayStock: any = await getOrCreateTodayStock(item.itemId);
-            // Check if sufficient stock is available
-            if (todayStock.closingStock < item.quantityGram) {
-                return res.status(400).json(new apiResponse(400, responseMessage.insufficientStock, {}, {}))
+            let quantityGram = 0, quantity = 0, unitPrice = 0, totalPrice = 0;
+
+            if (itemDetails.pricingType === 'weight') {
+                unitPrice = Number(itemDetails.perKgPrice) / 1000 || 0; // price per gram
+
+                if (item.inputType === "weight") {
+                    quantityGram = Number(item.value) || 0;
+                    totalPrice = unitPrice * quantityGram;
+                } else if (item.inputType === "price") {
+                    totalPrice = Number(item.value) || 0;
+                    quantityGram = unitPrice ? totalPrice / unitPrice : 0;
+                } else {
+                    return res.status(400).json(new apiResponse(400, "Invalid inputType for weight-based item", {}, {}, {}));
+                }
+                quantity = 0; // Not used for weight-based
+            } else if (itemDetails.pricingType === 'fixed') {
+                unitPrice = Number(itemDetails['perItemPrice']) || 0;
+
+                if (item.inputType === "quantity") {
+                    quantity = Number(item.value) || 0;
+                    totalPrice = unitPrice * quantity;
+                } else if (item.inputType === "price") {
+                    totalPrice = Number(item.value) || 0;
+                    quantity = unitPrice ? totalPrice / unitPrice : 0;
+                } else {
+                    return res.status(400).json(new apiResponse(400, "Invalid inputType for fixed-price item", {}, {}, {}));
+                }
+                // If you have per-item weight, set quantityGram = quantity * perItemWeight, else set to quantity or 1
+                quantityGram = 0; // or quantity * (itemDetails.perItemWeight || 1)
+            } else {
+                return res.status(400).json(new apiResponse(400, "Unknown pricingType", {}, {}, {}));
             }
 
-            // Calculate prices
-            const unitPrice = itemDetails.perKgPrice / 1000;
-            const unitCost = itemDetails.perKgCost / 1000;
+            // Ensure all values are numbers and not NaN
+            quantityGram = Number(quantityGram) || 0;
+            quantity = Number(quantity) || 0;
+            unitPrice = Number(unitPrice) || 0;
+            totalPrice = Number(totalPrice) || 0;
 
-            total += unitPrice * item.quantityGram;
-            totalCost += unitCost * item.quantityGram;
+            // If totalPrice or quantityGram is 0, return error (unless you want to allow free/zero sales)
+            if (totalPrice <= 0) {
+                return res.status(400).json(new apiResponse(400, "Total price must be greater than zero", {}, {}, {}));
+            }
+            if (itemDetails.pricingType === 'weight' && quantityGram <= 0) {
+                return res.status(400).json(new apiResponse(400, "Quantity (gram) must be greater than zero for weight-based items", {}, {}, {}));
+            }
+            if (itemDetails.pricingType === 'fixed' && quantity <= 0) {
+                return res.status(400).json(new apiResponse(400, "Quantity (pieces) must be greater than zero for fixed-price items", {}, {}, {}));
+            }
 
-            // Update stock
-            todayStock.removedStock = Number(todayStock.removedStock) + Number(item.quantityGram);
-            todayStock.closingStock = Number(todayStock.openingStock) + Number(todayStock.addedStock) - Number(todayStock.removedStock);
+            // Stock check and update (for weight-based, use quantityGram; for fixed, use quantity)
+            const todayStock = await getOrCreateTodayStock(item.itemId);
+            const stockToCheck = itemDetails.pricingType === 'weight' ? quantityGram : quantity;
+            if ((Number(todayStock.closingStock) || 0) < stockToCheck) {
+                return res.status(400).json(new apiResponse(400, responseMessage.insufficientStock, {}, {}, {}));
+            }
+            const prevRemovedStock = Number(todayStock.removedStock) || 0;
+            todayStock.removedStock = prevRemovedStock + stockToCheck;
+            const openingStock = Number(todayStock.openingStock) || 0;
+            const addedStock = Number(todayStock.addedStock) || 0;
+            const removedStock = Number(todayStock.removedStock) || 0;
+            todayStock.closingStock = openingStock + addedStock - removedStock;
             await todayStock.save();
+
+            saleItems.push({
+                itemId: item.itemId,
+                quantityGram: quantityGram,
+                quantity: quantity,
+                unitPrice: unitPrice,
+                totalPrice: totalPrice
+            });
+
+            total += totalPrice;
+            totalCost += itemDetails.pricingType === 'weight'
+                ? (Number(itemDetails.perKgCost) / 1000 || 0) * quantityGram
+                : ((Number(itemDetails['perItemCost']) || 0) * quantity);
         }
 
+        // After loop
+        total = Number(total) || 0;
+        totalCost = Number(totalCost) || 0;
         const profit = total - totalCost;
         const invoiceNumber = await generateInvoiceNumber();
 
         const sale = new saleModel({
-            items,
+            items: saleItems,
             paymentMode,
             customerName,
             mobile,
@@ -101,10 +163,10 @@ export const createSale = async (req, res) => {
 
         await sale.save();
 
-        return res.status(200).json(new apiResponse(200, responseMessage.addDataSuccess("sale"), sale, {}))
+        return res.status(200).json(new apiResponse(200, responseMessage.addDataSuccess("sale"), sale, {}, {}))
     } catch (error) {
         console.log(error)
-        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error))
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}))
     }
 };
 
@@ -124,10 +186,10 @@ export const getSales = async (req, res) => {
         
         const sales = await saleModel.find(query).populate('userId', 'name').populate('items.itemId', 'name');
 
-        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("sales"), sales, {}))
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("sales"), sales, {}, {}))
     } catch (error) {
         console.log(error)
-        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error))
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}))
     }
 };
 
@@ -137,12 +199,12 @@ export const getSale = async (req, res) => {
             .populate('userId', 'name')
             .populate('items.itemId', 'name');
 
-        if (!sale) return res.status(404).json(new apiResponse(404, responseMessage.getDataNotFound("sale"), {}, {}))
+        if (!sale) return res.status(404).json(new apiResponse(404, responseMessage.getDataNotFound("sale"), {}, {}, {}))
 
-        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("sale"), sale, {}))
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("sale"), sale, {}, {}))
     } catch (error) {
         console.log(error)
-        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error))
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}))
     }
 };
 
@@ -175,10 +237,10 @@ export const getSoldItems = async (req, res) => {
             }
         ]);
 
-        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("sold items"), soldItems, {}));
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("sold items"), soldItems, {}, {}));
     } catch (error) {
         console.log(error);
-        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error));
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
     }
 };
 
@@ -229,10 +291,10 @@ export const getCollection = async (req, res) => {
             }
         ]);
 
-        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("collection"), collection, {}));
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("collection"), collection, {}, {}));
     } catch (error) {
         console.log(error);
-        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error));
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
     }
 };
 
@@ -265,9 +327,9 @@ export const getRemainingStock = async (req, res) => {
             }
         ]);
 
-        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("remaining stock"), remaining, {}));
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("remaining stock"), remaining, {}, {}));
     } catch (error) {
         console.log(error);
-        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error));
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
     }
 };

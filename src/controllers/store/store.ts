@@ -10,7 +10,7 @@ export const addStore = async (req, res) => {
   try {
 
     let isExist = await storeModel.findOne({ phoneNumber: body.phoneNumber, isDeleted: false })
-    if (isExist) return res.status(404).json(new apiResponse(404, responseMessage?.dataAlreadyExist("phone number"), {}, {}))
+    if (isExist) return res.status(404).json(new apiResponse(404, responseMessage?.dataAlreadyExist("phone number"), {}, {}, {}))
 
     if (user.role === ROLES.ADMIN) {
       body.userId = new ObjectId(user._id)
@@ -20,13 +20,13 @@ export const addStore = async (req, res) => {
     body.role = ROLES.SALESMAN
 
     const response = await new storeModel(body).save();
-    if (!response) return res.status(404).json(new apiResponse(404, responseMessage?.addDataError, {}, {}));
+    if (!response) return res.status(404).json(new apiResponse(404, responseMessage?.addDataError, {}, {}, {}));
 
     let newSalesman = await storeModel.findOne({ _id: new ObjectId(response._id), isDeleted: false }).lean()
-    return res.status(200).json(new apiResponse(200, responseMessage?.addDataSuccess("salesman"), newSalesman, {}));
+    return res.status(200).json(new apiResponse(200, responseMessage?.addDataSuccess("salesman"), newSalesman, {}, {}));
   } catch (error) {
     console.log(error);
-    return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error));
+    return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error, {}));
   }
 };
 
@@ -36,18 +36,18 @@ export const editStoreById = async (req, res) => {
   try {
 
     let isExist = await storeModel.findOne({ _id: new ObjectId(body.salesmanId), isDeleted: false })
-    if (!isExist) return res.status(404).json(new apiResponse(404, responseMessage?.getDataNotFound("salesman"), {}, {}))
+    if (!isExist) return res.status(404).json(new apiResponse(404, responseMessage?.getDataNotFound("salesman"), {}, {}, {}))
 
     isExist = await storeModel.findOne({ phoneNumber: body.phoneNumber, userType: ROLES.SALESMAN, isDeleted: false, _id: { $ne: new ObjectId(body.salesmanId) } })
-    if (isExist) return res.status(404).json(new apiResponse(404, responseMessage?.dataAlreadyExist("phone number"), {}, {}))
+    if (isExist) return res.status(404).json(new apiResponse(404, responseMessage?.dataAlreadyExist("phone number"), {}, {}, {}))
 
     body.updatedBy = new ObjectId(user?._id)
     const response = await storeModel.findOneAndUpdate({ _id: new ObjectId(body.salesmanId), isDeleted: false }, body, { new: true });
-    if (!response) return res.status(404).json(new apiResponse(404, responseMessage?.updateDataError("salesman"), {}, {}));
-    return res.status(200).json(new apiResponse(200, responseMessage?.updateDataSuccess("salesman"), response, {}));
+    if (!response) return res.status(404).json(new apiResponse(404, responseMessage?.updateDataError("salesman"), {}, {}, {}));
+    return res.status(200).json(new apiResponse(200, responseMessage?.updateDataSuccess("salesman"), response, {}, {}));
   } catch (error) {
     console.log(error);
-    return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error));
+    return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error, {}));
   }
 };
 
@@ -56,12 +56,12 @@ export const deleteStoreById = async (req, res) => {
   let { id } = req.params;
   try {
     const response = await storeModel.findOneAndUpdate({ _id: new ObjectId(id), isDeleted: false }, { isDeleted: true }, { new: true });
-    if (!response) return res.status(404).json(new apiResponse(404, responseMessage?.getDataNotFound("salesman"), {}, {}));
+    if (!response) return res.status(404).json(new apiResponse(404, responseMessage?.getDataNotFound("salesman"), {}, {}, {}));
 
-    return res.status(200).json(new apiResponse(200, responseMessage?.deleteDataSuccess("salesman"), {}, {}));
+    return res.status(200).json(new apiResponse(200, responseMessage?.deleteDataSuccess("salesman"), {}, {}, {}));
   } catch (error) {
     console.log(error);
-    return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error));
+    return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error, {}));
   }
 };
 
@@ -124,10 +124,10 @@ export const getAllStores = async (req, res) => {
         limit: limit,
         page_limit: Math.ceil(response[0]?.data_count[0]?.count / limit) || 1,
       },
-    }, {}))
+    }, {}, {}))
   } catch (error) {
     console.log(error);
-    return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error));
+    return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error, {}));
   }
 };
 
@@ -136,10 +136,10 @@ export const getStoreById = async (req, res) => {
   let { id } = req.params;
   try {
     const response = await storeModel.findOne({ _id: new ObjectId(id), isDeleted: false });
-    if (!response) return res.status(404).json(new apiResponse(404, responseMessage?.getDataNotFound("salesman"), {}, {}));
-    return res.status(200).json(new apiResponse(200, responseMessage?.getDataSuccess("salesman"), response, {}));
+    if (!response) return res.status(404).json(new apiResponse(404, responseMessage?.getDataNotFound("salesman"), {}, {}, {}));
+    return res.status(200).json(new apiResponse(200, responseMessage?.getDataSuccess("salesman"), response, {}, {}));
   } catch (error) {
     console.log(error);
-    return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error));
+    return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error, {}));
   }
 };

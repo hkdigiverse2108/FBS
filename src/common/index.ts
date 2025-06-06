@@ -4,11 +4,13 @@ export class apiResponse {
     private message: string | null
     private data: any | null
     private error: any | null
-    constructor(status: number, message: string, data: any, error: any) {
+    private warning: any | null
+    constructor(status: number, message: string, data: any, error: any, warning: any) {
         this.status = status
         this.message = message
         this.data = data
         this.error = error
+        this.warning = warning
     }
 }
 

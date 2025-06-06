@@ -61,10 +61,10 @@ export const addStock = async (req, res) => {
             const item = await itemModel.findOne({ _id: new ObjectId(itemId), isDeleted: false });
         }
 
-        return res.status(200).json(new apiResponse(200, responseMessage.addDataSuccess("stock"), todayStock, {}));
+        return res.status(200).json(new apiResponse(200, responseMessage.addDataSuccess("stock"), todayStock, {}, {}));
     } catch (error) {
         console.log(error);
-        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error));
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
     }
 };
 
@@ -77,7 +77,7 @@ export const removeStock = async (req, res) => {
         todayStock.userId = new ObjectId(user._id);
 
         if (todayStock.closingStock < removeGram) {
-            return res.status(400).json(new apiResponse(400, responseMessage.insufficientStock, {}, {}));
+            return res.status(400).json(new apiResponse(400, responseMessage.insufficientStock, {}, {}, {}));
         }
 
         todayStock.removedStock = Number(todayStock.removedStock) + Number(removeGram);
@@ -88,10 +88,10 @@ export const removeStock = async (req, res) => {
             const item = await itemModel.findOne({ _id: new ObjectId(itemId), isDeleted: false });
         }
 
-        return res.status(200).json(new apiResponse(200, responseMessage.addDataSuccess("stock"), todayStock, {}));
+        return res.status(200).json(new apiResponse(200, responseMessage.addDataSuccess("stock"), todayStock, {}, {}));
     } catch (error) {
         console.log(error);
-        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error));
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
     }
 };
 
@@ -122,10 +122,10 @@ export const getStock = async (req, res) => {
             }
         ]);
 
-        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("monthly stock"), monthlyStock[0] || {}, {}));
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("monthly stock"), monthlyStock[0] || {}, {}, {}));
     } catch (error) {
         console.log(error);
-        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error));
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
     }
 };
 
@@ -165,9 +165,99 @@ export const getCurrentStock = async (req, res) => {
             }
         ]);
 
-        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("stocks"), stocks, {}));
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("stocks"), stocks, {}, {}));
     } catch (error) {
         console.log(error);
-        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error));
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
+    }
+};
+
+export const editStock = async (req, res) => {
+    reqInfo(req);
+    let { stockId, addedStock, removedStock } = req.body, { user } = req.headers;
+    try {
+        const stock = await stockModel.findOne({ _id: new ObjectId(stockId), isDeleted: false });
+        if (!stock) {
+            return res.status(400).json(new apiResponse(400, responseMessage.getDataNotFound("stock"), {}, {}, {}));
+        }
+
+        // Update stock values
+        if (addedStock !== undefined) {
+            stock.addedStock = Number(addedStock);
+        }
+        if (removedStock !== undefined) {
+            stock.removedStock = Number(removedStock);
+        }
+
+        // Recalculate closing stock
+        stock.closingStock = Number(stock.openingStock) + Number(stock.addedStock) - Number(stock.removedStock);
+
+        // Update subsequent days' opening and closing stocks
+        const subsequentStocks = await stockModel.find({
+            itemId: stock.itemId,
+            date: { $gt: stock.date },
+            isDeleted: false
+        }).sort({ date: 1 });
+
+        let previousClosingStock = stock.closingStock;
+        for (const subsequentStock of subsequentStocks) {
+            subsequentStock.openingStock = previousClosingStock;
+            subsequentStock.closingStock = Number(subsequentStock.openingStock) + 
+                                         Number(subsequentStock.addedStock) - 
+                                         Number(subsequentStock.removedStock);
+            previousClosingStock = subsequentStock.closingStock;
+            await subsequentStock.save();
+        }
+
+        await stock.save();
+
+        return res.status(200).json(new apiResponse(200, responseMessage.updateDataSuccess("stock"), stock, {}, {}));
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
+    }
+};
+
+export const deleteStock = async (req, res) => {
+    reqInfo(req);
+    let { stockId } = req.params, { user } = req.headers;
+    try {
+        const stock = await stockModel.findOne({ _id: new ObjectId(stockId), isDeleted: false });
+        if (!stock) {
+            return res.status(400).json(new apiResponse(400, responseMessage.getDataNotFound("stock"), {}, {}, {}));
+        }
+
+        // Soft delete the stock entry
+        stock.isDeleted = true;
+        await stock.save();
+
+        // Update subsequent days' opening and closing stocks
+        const subsequentStocks = await stockModel.find({
+            itemId: stock.itemId,
+            date: { $gt: stock.date },
+            isDeleted: false
+        }).sort({ date: 1 });
+
+        // Get the previous valid stock entry
+        const previousStock = await stockModel.findOne({
+            itemId: stock.itemId,
+            date: { $lt: stock.date },
+            isDeleted: false
+        }).sort({ date: -1 });
+
+        let previousClosingStock = previousStock ? previousStock.closingStock : 0;
+        for (const subsequentStock of subsequentStocks) {
+            subsequentStock.openingStock = previousClosingStock;
+            subsequentStock.closingStock = Number(subsequentStock.openingStock) + 
+                                         Number(subsequentStock.addedStock) - 
+                                         Number(subsequentStock.removedStock);
+            previousClosingStock = subsequentStock.closingStock;
+            await subsequentStock.save();
+        }
+
+        return res.status(200).json(new apiResponse(200, responseMessage.deleteDataSuccess("stock"), {}, {}, {}));
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
     }
 };

@@ -1,4 +1,6 @@
+import { apiResponse } from "../../common";
 import { itemModel, saleModel, stockModel } from "../../database";
+import { responseMessage } from "../../helper";
 
 export const getDashboardStats = async (req, res) => {
     try {
@@ -79,9 +81,9 @@ export const getDashboardStats = async (req, res) => {
             }
         }
 
-        res.status(200).json({ success: true, data: stats });
+        res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("dashboard stats"), stats, {}, {}));
     } catch (error: any) {
-        res.status(400).json({ success: false, error: error.message });
+        res.status(400).json(new apiResponse(400, responseMessage.internalServerError, {}, error, {}));
     }
 };
 

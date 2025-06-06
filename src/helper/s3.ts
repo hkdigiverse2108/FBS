@@ -165,11 +165,11 @@ export const delete_file = async (req: Request, res: Response) => {
     let { file, folder } = req.params
     try {
         let message = await deleteImage(file, folder)
-        return res.status(200).json(new apiResponse(200, `${message}`, {}, {}))
+        return res.status(200).json(new apiResponse(200, `${message}`, {}, {}, {}))
 
     } catch (error) {
         console.log(error)
-        return res.status(500).json(new apiResponse(500, 'Internal Server Error ', {}, error));
+        return res.status(500).json(new apiResponse(500, 'Internal Server Error ', {}, error, {}));
     }
 }
 
