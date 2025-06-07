@@ -1,5 +1,5 @@
-import { apiResponse } from '../../common';
-import { itemModel, saleModel, stockModel } from '../../database';
+import { apiResponse, STORE_PLATFORM_CHARGE_TYPE } from '../../common';
+import { itemModel, saleModel, stockModel, storeModel } from '../../database';
 import { reqInfo, responseMessage } from '../../helper';
 import { generateInvoiceNumber } from '../../helper/utils';
 
@@ -52,10 +52,17 @@ export const createSale = async (req, res) => {
     try {
         const date = new Date();
 
+        // Get store details for platform charge
+        const store = await storeModel.findOne({ _id: new ObjectId(user.storeId) }).lean();
+        if (!store) {
+            return res.status(400).json(new apiResponse(400, "Store not found", {}, {}, {}));
+        }
+
         // Calculate totals and validate stock
         let total = 0;
         let totalCost = 0;
         let saleItems = [];
+        let totalItems = 0; // Count total items for fixed platform charge
 
         for (const item of items) {
             const itemDetails = await itemModel.findOne({ _id: new ObjectId(item.itemId) }).lean();
@@ -66,7 +73,8 @@ export const createSale = async (req, res) => {
             let quantityGram = 0, quantity = 0, unitPrice = 0, totalPrice = 0;
 
             if (itemDetails.pricingType === 'weight') {
-                unitPrice = Number(itemDetails.perKgPrice) / 1000 || 0; // price per gram
+                unitPrice = Number(itemDetails.perKgPrice) / 1000 || 0;
+                const itemCost = Number(itemDetails.perKgCost) / 1000 || 0;
 
                 if (item.inputType === "weight") {
                     quantityGram = Number(item.value) || 0;
@@ -78,8 +86,15 @@ export const createSale = async (req, res) => {
                     return res.status(400).json(new apiResponse(400, "Invalid inputType for weight-based item", {}, {}, {}));
                 }
                 quantity = 0; // Not used for weight-based
+
+                // Calculate cost for weight-based items
+                totalCost += itemCost * quantityGram;
+                // Count as 1 item for platform charge
+                totalItems += 1;
             } else if (itemDetails.pricingType === 'fixed') {
+                // For fixed items, use perItemPrice and perItemCost
                 unitPrice = Number(itemDetails['perItemPrice']) || 0;
+                const itemCost = Number(itemDetails['perItemCost']) || 0;
 
                 if (item.inputType === "quantity") {
                     quantity = Number(item.value) || 0;
@@ -90,8 +105,12 @@ export const createSale = async (req, res) => {
                 } else {
                     return res.status(400).json(new apiResponse(400, "Invalid inputType for fixed-price item", {}, {}, {}));
                 }
-                // If you have per-item weight, set quantityGram = quantity * perItemWeight, else set to quantity or 1
-                quantityGram = 0; // or quantity * (itemDetails.perItemWeight || 1)
+                quantityGram = quantity; // For fixed items, quantityGram equals quantity
+
+                // Calculate cost for fixed items
+                totalCost += itemCost * quantity;
+                totalItems += 1;
+                // Add to total items count for platform charge
             } else {
                 return res.status(400).json(new apiResponse(400, "Unknown pricingType", {}, {}, {}));
             }
@@ -102,7 +121,7 @@ export const createSale = async (req, res) => {
             unitPrice = Number(unitPrice) || 0;
             totalPrice = Number(totalPrice) || 0;
 
-            // If totalPrice or quantityGram is 0, return error (unless you want to allow free/zero sales)
+            // If totalPrice or quantityGram is 0, return error
             if (totalPrice <= 0) {
                 return res.status(400).json(new apiResponse(400, "Total price must be greater than zero", {}, {}, {}));
             }
@@ -113,7 +132,7 @@ export const createSale = async (req, res) => {
                 return res.status(400).json(new apiResponse(400, "Quantity (pieces) must be greater than zero for fixed-price items", {}, {}, {}));
             }
 
-            // Stock check and update (for weight-based, use quantityGram; for fixed, use quantity)
+            // Stock check and update
             const todayStock = await getOrCreateTodayStock(item.itemId);
             const stockToCheck = itemDetails.pricingType === 'weight' ? quantityGram : quantity;
             if ((Number(todayStock.closingStock) || 0) < stockToCheck) {
@@ -129,22 +148,36 @@ export const createSale = async (req, res) => {
 
             saleItems.push({
                 itemId: item.itemId,
+                itemName: itemDetails.name,
                 quantityGram: quantityGram,
-                quantity: quantity,
                 unitPrice: unitPrice,
                 totalPrice: totalPrice
             });
 
             total += totalPrice;
-            totalCost += itemDetails.pricingType === 'weight'
-                ? (Number(itemDetails.perKgCost) / 1000 || 0) * quantityGram
-                : ((Number(itemDetails['perItemCost']) || 0) * quantity);
         }
 
         // After loop
         total = Number(total) || 0;
         totalCost = Number(totalCost) || 0;
+        
+        // Validate total cost is not greater than total price
+        if (totalCost > total) {
+            return res.status(400).json(new apiResponse(400, "Total cost cannot be greater than total price", {}, {}, {}));
+        }
+
         const profit = total - totalCost;
+
+        // Calculate platform charge
+        let platformCharge = 0;
+        if (store.platformCharge.type === STORE_PLATFORM_CHARGE_TYPE.FIXED) {
+            platformCharge = store.platformCharge.value * totalItems;
+        } else if (store.platformCharge.type === STORE_PLATFORM_CHARGE_TYPE.PERCENTAGE) {
+            platformCharge = (total * store.platformCharge.value) / 100;
+        }
+
+        total += platformCharge;
+
         const invoiceNumber = await generateInvoiceNumber();
 
         const sale = new saleModel({
@@ -158,6 +191,7 @@ export const createSale = async (req, res) => {
             total,
             totalCost,
             profit,
+            platformCharge,
             invoiceNumber
         });
 

@@ -2,7 +2,9 @@ import mongoose, { Schema, Document } from 'mongoose';
 
 interface ISaleItem {
   itemId: mongoose.Types.ObjectId;
+  itemName: string;
   quantityGram: number;
+  quantity: number;
   unitPrice: number;
   totalPrice: number;
 }
@@ -20,6 +22,7 @@ export interface ISale extends Document {
   total: number;
   totalCost: number;
   profit: number;
+  platformCharge: number;
   profitAmount: number;
   invoiceNumber: string;
   createdAt: Date;
@@ -29,7 +32,9 @@ export interface ISale extends Document {
 const SaleSchema: Schema = new Schema({
   items: [{
     itemId: { type: Schema.Types.ObjectId, ref: 'item', required: true },
+    itemName: { type: String, required: true },
     quantityGram: { type: Number, required: true },
+    quantity: { type: Number },
     unitPrice: { type: Number },
     totalPrice: { type: Number }
   }],
@@ -42,7 +47,7 @@ const SaleSchema: Schema = new Schema({
   total: { type: Number, default: 0 },
   totalCost: { type: Number, default: 0 },
   profit: { type: Number, default: 0 },
-  profitAmount: { type: Number, default: 0 },
+  platformCharge: { type: Number, default: 0 },
   invoiceNumber: { type: String, unique: true }
 }, { timestamps: true });
 

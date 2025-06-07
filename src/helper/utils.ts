@@ -59,8 +59,7 @@ export const generateInvoiceNumber = async (): Promise<string> => {
   if (lastSale) {
     const lastSequence = parseInt(lastSale.invoiceNumber.slice(-6));
     sequence = (lastSequence + 1).toString().padStart(6, '0');
-  } `
-  SD`
+  }
 
   return `${year}${month}${day}${sequence}`; // 14 characters
 };
