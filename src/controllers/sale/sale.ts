@@ -176,8 +176,6 @@ export const createSale = async (req, res) => {
             platformCharge = (total * store.platformCharge.value) / 100;
         }
 
-        total += platformCharge;
-
         const invoiceNumber = await generateInvoiceNumber();
 
         const sale = new saleModel({
