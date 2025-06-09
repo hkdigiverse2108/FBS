@@ -6,8 +6,8 @@ export interface IItem extends Document {
   pricingType: 'weight' | 'fixed';
   perKgPrice: number;
   perKgCost: number;
-  perBottlePrice: number;
-  perBottleCost: number;
+  perItemPrice: number;
+  perItemCost: number;
   photo: string;
   createdAt: Date;
   updatedAt: Date;
@@ -29,4 +29,4 @@ const ItemSchema: Schema = new Schema({
   isBlocked: { type: Boolean, default: false }
 }, { timestamps: true });
 
-export const itemModel = mongoose.model<IItem>('item', ItemSchema); 
+export const itemModel = mongoose.model<IItem>('item', ItemSchema);

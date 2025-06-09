@@ -261,3 +261,58 @@ export const deleteStock = async (req, res) => {
         return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
     }
 };
+
+export const checkStockAvailability = async (req, res) => {
+    reqInfo(req);
+    let { id } = req.params, { user } = req.headers;
+    try {
+        const today = new Date();
+        const { start: startOfToday, end: endOfToday } = getStartAndEndOfDay(today);
+
+        const todayStock = await stockModel.findOne({
+            itemId: new ObjectId(id),
+            date: {
+                $gte: startOfToday,
+                $lte: endOfToday
+            },
+            isDeleted: false
+        });
+
+        const item = await itemModel.findOne({ _id: new ObjectId(id), isDeleted: false });
+        
+        if (!item) {
+            return res.status(400).json(new apiResponse(400, responseMessage.getDataNotFound("item"), {}, {}, {}));
+        }
+
+        let stockInfo = {
+            isAvailable: false,
+            availableQuantity: todayStock ? todayStock.closingStock : 0,
+            itemId: id,
+            pricingType: item.pricingType,
+            stockDetails: {},
+            date: today
+        };
+
+        if (item.pricingType === 'weight') {
+            stockInfo.stockDetails = {
+                availableInGrams: todayStock ? todayStock.closingStock : 0,
+                availableInKg: todayStock ? (todayStock.closingStock / 1000).toFixed(2) : "0.00",
+                perKgPrice: item.perKgPrice,
+                perKgCost: item.perKgCost
+            };
+            stockInfo.isAvailable = todayStock ? todayStock.closingStock > 0 : false;
+        } else {
+            stockInfo.stockDetails = {
+                availableUnits: todayStock ? todayStock.closingStock : 0,
+                perItemPrice: item.perItemPrice,
+                perItemCost: item.perItemCost
+            };
+            stockInfo.isAvailable = todayStock ? todayStock.closingStock > 0 : false;
+        }
+
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("today's stock availability"), stockInfo, {}, {}));
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
+    }
+};
