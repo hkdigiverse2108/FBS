@@ -203,7 +203,8 @@ export const createSale = async (req, res) => {
 };
 
 export const getSales = async (req, res) => {
-    let { startDate, endDate, userId } = req.query;
+    reqInfo(req);
+    let { startDate, endDate, userId } = req.query, { user } = req.headers;
     try {
         const query: any = {};
 
@@ -226,6 +227,7 @@ export const getSales = async (req, res) => {
 };
 
 export const getSale = async (req, res) => {
+    reqInfo(req);
     try {
         const sale = await saleModel.findOne({ _id: new ObjectId(req.params.id) }).lean()
             .populate('userId', 'name')
@@ -332,7 +334,6 @@ export const getCollection = async (req, res) => {
 
 export const getRemainingStock = async (req, res) => {
     reqInfo(req);
-    let { dateFilter } = req.body, { user } = req.headers;
     try {
         const remaining = await stockModel.aggregate([
             { $sort: { date: -1 } },
@@ -360,6 +361,136 @@ export const getRemainingStock = async (req, res) => {
         ]);
 
         return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("remaining stock"), remaining, {}, {}));
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
+    }
+};
+
+export const getCostReport = async (req, res) => {
+    reqInfo(req);
+    try {
+        const sales = await saleModel.aggregate([
+            { $unwind: "$items" },
+            {
+                $group: {
+                    _id: "$items.itemId",
+                    itemName: { $first: "$items.itemName" },
+                    totalQty: { $sum: "$items.quantityGram" },
+                    totalCost: { $sum: "$items.totalPrice" }
+                }
+            }
+        ]);
+
+        // Get cost per unit for each item
+        const itemIds = sales.map(s => s._id);
+        const items = await itemModel.find({ _id: { $in: itemIds } }).lean();
+
+        const report = sales.map(sale => {
+            const item = items.find(i => i._id.toString() === sale._id.toString());
+            let costPerUnit = 0;
+            let wtOrQty = '';
+            if (item.pricingType === 'weight') {
+                costPerUnit = item.perKgCost;
+                wtOrQty = `${sale.totalQty / 1000}kg`;
+            } else {
+                costPerUnit = item['perItemCost'];
+                wtOrQty = `${sale.totalQty} pcs`;
+            }
+            return {
+                item: sale.itemName,
+                wtOrQty,
+                cost: `${costPerUnit}`,
+                total: `${sale.totalCost}`
+            };
+        });
+
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("cost report"), report, {}, {}));
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
+    }
+};
+
+export const getProfitReport = async (req, res) => {
+    reqInfo(req);
+    try {
+        const sales = await saleModel.aggregate([
+            { $unwind: "$items" },
+            {
+                $group: {
+                    _id: "$items.itemId",
+                    itemName: { $first: "$items.itemName" },
+                    totalQty: { $sum: "$items.quantityGram" },
+                    totalRevenue: { $sum: "$items.totalPrice" }
+                }
+            }
+        ]);
+
+        // Get cost per unit for each item
+        const itemIds = sales.map(s => s._id);
+        const items = await itemModel.find({ _id: { $in: itemIds } }).lean();
+
+        const report = sales.map(sale => {
+            const item = items.find(i => i._id.toString() === sale._id.toString());
+            let costPerGram = 0;
+            let profit = 0;
+            let profitPerKg = 0;
+            if (item.pricingType === 'weight') {
+                costPerGram = item.perKgCost / 1000;
+                profit = sale.totalRevenue - (costPerGram * sale.totalQty);
+                profitPerKg = profit / (sale.totalQty / 1000);
+            } else {
+                costPerGram = item['perItemCost'];
+                profit = sale.totalRevenue - (costPerGram * sale.totalQty);
+                profitPerKg = profit / sale.totalQty;
+            }
+            return {
+                item: sale.itemName,
+                profit: `${profit}`,
+                profitPerKg: `${profitPerKg}`
+            };
+        });
+
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("profit report"), report, {}, {}));
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
+    }
+};
+
+export const getPlatformFeesReport = async (req, res) => {
+    reqInfo(req);
+    try {
+        // You can get storeId from req.headers.user or req.query/storeId as per your auth system
+        const { user } = req.headers;
+        const storeId = user?.storeId;
+
+        if (!storeId) {
+            return res.status(400).json(new apiResponse(400, responseMessage.getDataNotFound("store"), {}, {}, {}));
+        }
+
+        // Aggregate platform charges by date
+        const fees = await saleModel.aggregate([
+            { $match: { storeId: new ObjectId(storeId) } },
+            {
+                $group: {
+                    _id: {
+                        $dateToString: { format: "%d/%m/%Y", date: "$date" }
+                    },
+                    amount: { $sum: "$platformCharge" }
+                }
+            },
+            { $sort: { "_id": 1 } }
+        ]);
+
+        // Format for frontend
+        const report = fees.map(fee => ({
+            date: fee._id,
+            amount: fee.amount
+        }));
+
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("platform fees report"), report, {}, {}));
     } catch (error) {
         console.log(error);
         return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
