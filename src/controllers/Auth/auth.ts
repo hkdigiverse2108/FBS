@@ -83,11 +83,10 @@ export const login = async (req, res) => { //email or password // phone or passw
     let body = req.body, response: any
     try {
         response = await userModel.findOne({ phoneNumber: body?.phoneNumber, isDeleted: false }).lean()
-        if (!response) response = await salesmanModel.findOne({ phoneNumber: body?.phoneNumber, isDeleted: false }).lean()
+        if (!response) response = await salesmanModel.findOne({ loginId: body?.phoneNumber, isDeleted: false }).lean()
         
         if (!response) return res.status(400).json(new apiResponse(400, responseMessage?.invalidUserPasswordPhoneNumber, {}, {}, {}))
         if (response?.isBlock == true) return res.status(403).json(new apiResponse(403, responseMessage?.accountBlock, {}, {}, {}))
-        console.log("response => ", response)
         
         if (response?.role !== ROLES.SALESMAN) {
             const passwordMatch = await bcryptjs.compare(body.password, response.password)

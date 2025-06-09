@@ -17,6 +17,7 @@ const SalesmanSchema: Schema = new Schema({
     name: { type: String },
     phoneNumber: { type: Number },
     password: { type: String },
+    loginId: { type: String },
     role: { type: String, enum: Object.values(ROLES), default: ROLES.SALESMAN },
     userId: { type: Schema.Types.ObjectId, ref: 'user' },
     storeId: { type: Schema.Types.ObjectId, ref: 'store' },

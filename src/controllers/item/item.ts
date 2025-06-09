@@ -1,5 +1,5 @@
 import { apiResponse, ROLES } from "../../common";
-import { itemModel } from "../../database";
+import { itemModel, stockModel } from "../../database";
 import { reqInfo, responseMessage } from "../../helper";
 
 const ObjectId = require("mongoose").Types.ObjectId
@@ -141,8 +141,10 @@ export const deleteItem = async (req, res) => {
     reqInfo(req);
     let { id } = req.params
     try {
-        const item = await itemModel.findOneAndUpdate({ _id: new ObjectId(id) }, { isDeleted: true });
+        const item = await itemModel.findOneAndUpdate({ _id: new ObjectId(id), isDeleted: false }, { isDeleted: true }, { new: true });
         if (!item) return res.status(404).json(new apiResponse(404, responseMessage.getDataNotFound("item"), {}, {}, {}))
+
+        await stockModel.findOneAndUpdate({ itemId: new ObjectId(id), isDeleted: false }, { isDeleted: true }, { new: true });
         return res.status(200).json(new apiResponse(200, responseMessage.deleteDataSuccess("item"), {}, {}, {}))
     } catch (error: any) {
         return res.status(400).json(new apiResponse(400, responseMessage.internalServerError, {}, error, {}));
