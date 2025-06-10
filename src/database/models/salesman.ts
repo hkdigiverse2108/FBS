@@ -9,6 +9,7 @@ export interface Salesman extends Document {
     storeId?: mongoose.Types.ObjectId;
     isDeleted: boolean;
     isBlocked: boolean;
+    access: string[];
     createdAt: Date;
     updatedAt: Date;
 }
@@ -21,7 +22,7 @@ const SalesmanSchema: Schema = new Schema({
     role: { type: String, enum: Object.values(ROLES), default: ROLES.SALESMAN },
     userId: { type: Schema.Types.ObjectId, ref: 'user' },
     storeId: { type: Schema.Types.ObjectId, ref: 'store' },
-    access: { type: Array, default: [] },
+    access: [{ type: String }],
     isDeleted: { type: Boolean, default: false },
     isBlocked: { type: Boolean, default: false }
 }, { timestamps: true });
