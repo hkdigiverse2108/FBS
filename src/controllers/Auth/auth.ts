@@ -108,6 +108,7 @@ export const login = async (req, res) => { //email or password // phone or passw
             firstName: response?.firstName,
             lastName: response?.lastName,
             phoneNumber: response?.phoneNumber,
+            access: response?.access,
             token,
         }
         return res.status(200).json(new apiResponse(200, responseMessage?.loginSuccess, response, {}, {}))
