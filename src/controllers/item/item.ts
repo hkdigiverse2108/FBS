@@ -41,7 +41,7 @@ export const updateItem = async (req, res) => {
         let item = await itemModel.findOne({ _id: new ObjectId(body.itemId), isDeleted: false }).lean()
         if (!item) return res.status(404).json(new apiResponse(404, responseMessage.getDataNotFound("item"), {}, {}, {}))
 
-        let isExist = await itemModel.findOne({ name: body.name, isDeleted: false, _id: { $ne: new ObjectId(body.itemId) } })   
+        let isExist = await itemModel.findOne({ name: body.name, isDeleted: false, _id: { $ne: new ObjectId(body.itemId) } })
         if (isExist) return res.status(404).json(new apiResponse(404, responseMessage?.dataAlreadyExist(body.name), {}, {}, {}));
 
         if (body.pricingType === "weight") {
@@ -87,7 +87,18 @@ export const getItems = async (req, res) => {
                 data: [
                     { $sort: { createdAt: -1 } },
                     { $skip: (page - 1) * limit },
-                    { $limit: limit }
+                    { $limit: limit },
+                    {
+                        $lookup: {
+                            from: "stocks",
+                            localField: "_id",
+                            foreignField: "itemId",
+                            as: "stock"
+                        }
+                    },
+                    {
+                        $unwind: { path: "$stock", preserveNullAndEmptyArrays: true }
+                    }
                 ],
                 data_count: [{ $count: "count" }]
             }
@@ -95,11 +106,21 @@ export const getItems = async (req, res) => {
             facetPipeline = {
                 data: [
                     { $sort: { createdAt: -1 } },
+                    {
+                        $lookup: {
+                            from: "stocks",
+                            localField: "_id",
+                            foreignField: "itemId",
+                            as: "stock"
+                        }
+                    },
+                    {
+                        $unwind: { path: "$stock", preserveNullAndEmptyArrays: true }
+                    }
                 ],
                 data_count: [{ $count: "count" }]
             }
         }
-
 
         response = await itemModel.aggregate([
             { $match: match },
@@ -107,7 +128,6 @@ export const getItems = async (req, res) => {
                 $facet: facetPipeline
             }
         ]);
-
 
         return res.status(200).json(new apiResponse(200, responseMessage?.getDataSuccess("item"), {
             item_data: response[0]?.data || [],
