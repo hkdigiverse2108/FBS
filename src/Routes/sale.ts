@@ -8,7 +8,7 @@ router.get('/sold-items', saleController.getSoldItems);
 router.get('/collection', saleController.getCollection);
 router.get('/remaining-stock', saleController.getRemainingStock);
 router.get('/platform-fees-report', saleController.getPlatformFeesReport);
-router.get('/cost-report', saleController.getCostReport);
+router.get('/cost-report', saleController.getTodayCostReport);
 router.get('/profit-report', saleController.getProfitReport);
 router.get('/', saleController.getSales);
 router.get('/:id', saleController.getSale);

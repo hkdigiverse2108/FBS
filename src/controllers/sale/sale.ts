@@ -392,7 +392,7 @@ export const getCostReport = async (req, res) => {
             let wtOrQty = '';
             if (item.pricingType === 'weight') {
                 costPerUnit = item.perKgCost;
-                wtOrQty = `${sale.totalQty / 1000}kg`;
+                wtOrQty = `${sale.totalQty} g`;
             } else {
                 costPerUnit = item['perItemCost'];
                 wtOrQty = `${sale.totalQty} pcs`;
@@ -491,6 +491,77 @@ export const getPlatformFeesReport = async (req, res) => {
         }));
 
         return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("platform fees report"), report, {}, {}));
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
+    }
+};
+
+export const getTodayCostReport = async (req, res) => {
+    reqInfo(req);
+    try {
+        const { start: startOfToday, end: endOfToday } = getStartAndEndOfDay(new Date());
+        const sales = await saleModel.aggregate([
+            { $match: { date: { $gte: startOfToday, $lte: endOfToday } } },
+            { $unwind: "$items" },
+            {
+                $group: {
+                    _id: "$items.itemId",
+                    itemName: { $first: "$items.itemName" },
+                    totalQty: { $sum: "$items.quantityGram" },
+                    totalCost: { $sum: "$items.totalPrice" }
+                }
+            }
+        ]);
+
+        // Get cost per unit for each item
+        const itemIds = sales.map(s => s._id);
+        const items = await itemModel.find({ _id: { $in: itemIds } }).lean();
+
+        // Get today's added stock for each item
+        const stocks = await stockModel.aggregate([
+            {
+                $match: {
+                    itemId: { $in: itemIds },
+                    date: { $gte: startOfToday, $lte: endOfToday },
+                    isDeleted: false
+                }
+            },
+            {
+                $group: {
+                    _id: "$itemId",
+                    addedStockToday: { $sum: "$addedStock" }
+                }
+            }
+        ]);
+
+        // Map for quick lookup
+        const stockMap = {};
+        stocks.forEach(s => {
+            stockMap[s._id.toString()] = s.addedStockToday;
+        });
+
+        const report = sales.map(sale => {
+            const item = items.find(i => i._id.toString() === sale._id.toString());
+            let costPerUnit = 0;
+            let wtOrQty = '';
+            if (item.pricingType === 'weight') {
+                costPerUnit = item.perKgCost;
+                wtOrQty = `${sale.totalQty} g`;
+            } else {
+                costPerUnit = item['perItemCost'];
+                wtOrQty = `${sale.totalQty} pcs`;
+            }
+            return {
+                item: sale.itemName,
+                wtOrQty,
+                cost: `${costPerUnit}`,
+                total: `${sale.totalCost}`,
+                addedStockToday: stockMap[sale._id.toString()] || 0
+            };
+        });
+
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("today cost report"), report, {}, {}));
     } catch (error) {
         console.log(error);
         return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
