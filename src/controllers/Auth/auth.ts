@@ -107,6 +107,7 @@ export const login = async (req, res) => { //email or password // phone or passw
             _id: response?._id,
             firstName: response?.firstName,
             lastName: response?.lastName,
+            name: response?.name,
             phoneNumber: response?.phoneNumber,
             access: response?.access,
             token,
