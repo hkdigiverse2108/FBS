@@ -245,9 +245,16 @@ export const getSale = async (req, res) => {
 export const getSoldItems = async (req, res) => {
     reqInfo(req);
     let { dateFilter } = req.body, { user } = req.headers;
+
     try {
+        let items = [];
+        if(user.role === ROLES.ADMIN || user.role === ROLES.SALESMAN){
+            items = await itemModel.find({ isDeleted: false, storeId: new ObjectId(user.storeId) }).select('_id').lean();
+        }
+
         const soldItems = await saleModel.aggregate([
             { $unwind: "$items" },
+            { $match: { "items.itemId": { $in: items.map(i => i._id) } } },
             {
                 $group: {
                     _id: "$items.itemId",
@@ -282,9 +289,15 @@ export const getCollection = async (req, res) => {
     reqInfo(req);
     let { user } = req.headers;
     try {
+        let items = [];
+        if(user.role === ROLES.ADMIN || user.role === ROLES.SALESMAN){
+            items = await itemModel.find({ isDeleted: false, storeId: new ObjectId(user.storeId) }).select('_id').lean();
+        }
+
         const collection = await saleModel.aggregate([
             { $match: { storeId: new ObjectId(user.storeId) } },
             { $unwind: "$items" },
+            { $match: { "items.itemId": { $in: items.map(i => i._id) } } },
             {
                 $group: {
                     _id: { itemId: "$items.itemId", paymentMode: "$paymentMode" },
@@ -334,9 +347,15 @@ export const getCollection = async (req, res) => {
 
 export const getRemainingStock = async (req, res) => {
     reqInfo(req);
+    let { user } = req.headers;
     try {
+        let items = [];
+        if(user.role === ROLES.ADMIN || user.role === ROLES.SALESMAN){
+            items = await itemModel.find({ isDeleted: false, storeId: new ObjectId(user.storeId) }).select('_id').lean();
+        }
         const remaining = await stockModel.aggregate([
             { $sort: { date: -1 } },
+            { $match: { itemId: { $in: items.map(i => i._id) } } },
             {
                 $group: {
                     _id: "$itemId",
@@ -367,56 +386,17 @@ export const getRemainingStock = async (req, res) => {
     }
 };
 
-export const getCostReport = async (req, res) => {
-    reqInfo(req);
-    try {
-        const sales = await saleModel.aggregate([
-            { $unwind: "$items" },
-            {
-                $group: {
-                    _id: "$items.itemId",
-                    itemName: { $first: "$items.itemName" },
-                    totalQty: { $sum: "$items.quantityGram" },
-                    totalCost: { $sum: "$items.totalPrice" }
-                }
-            }
-        ]);
-
-        // Get cost per unit for each item
-        const itemIds = sales.map(s => s._id);
-        const items = await itemModel.find({ _id: { $in: itemIds } }).lean();
-
-        const report = sales.map(sale => {
-            const item = items.find(i => i._id.toString() === sale._id.toString());
-            let costPerUnit = 0;
-            let wtOrQty = '';
-            if (item.pricingType === 'weight') {
-                costPerUnit = item.perKgCost;
-                wtOrQty = `${sale.totalQty / 1000}kg`;
-            } else {
-                costPerUnit = item['perItemCost'];
-                wtOrQty = `${sale.totalQty} pcs`;
-            }
-            return {
-                item: sale.itemName,
-                wtOrQty,
-                cost: `${costPerUnit}`,
-                total: `${sale.totalCost}`
-            };
-        });
-
-        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("cost report"), report, {}, {}));
-    } catch (error) {
-        console.log(error);
-        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
-    }
-};
-
 export const getProfitReport = async (req, res) => {
     reqInfo(req);
+    let { user } = req.headers;
     try {
+        let itemsData = [];
+        if(user.role === ROLES.ADMIN || user.role === ROLES.SALESMAN){
+            itemsData = await itemModel.find({ isDeleted: false, storeId: new ObjectId(user.storeId) }).select('_id').lean();
+        }
         const sales = await saleModel.aggregate([
             { $unwind: "$items" },
+            { $match: { "items.itemId": { $in: itemsData.map(i => i._id) } } },
             {
                 $group: {
                     _id: "$items.itemId",
@@ -429,7 +409,7 @@ export const getProfitReport = async (req, res) => {
 
         // Get cost per unit for each item
         const itemIds = sales.map(s => s._id);
-        const items = await itemModel.find({ _id: { $in: itemIds } }).lean();
+        const items = await itemModel.find({ _id: { $in: itemIds }, isDeleted: false, storeId: new ObjectId(user.storeId) }).lean();
 
         const report = sales.map(sale => {
             const item = items.find(i => i._id.toString() === sale._id.toString());
@@ -461,9 +441,13 @@ export const getProfitReport = async (req, res) => {
 
 export const getPlatformFeesReport = async (req, res) => {
     reqInfo(req);
+    let { user } = req.headers;
     try {
-        // You can get storeId from req.headers.user or req.query/storeId as per your auth system
-        const { user } = req.headers;
+        let items = [];
+        if(user.role === ROLES.ADMIN || user.role === ROLES.SALESMAN){
+            items = await itemModel.find({ isDeleted: false, storeId: new ObjectId(user.storeId) }).select('_id').lean();
+        }
+
         const storeId = user?.storeId;
 
         if (!storeId) {
@@ -472,7 +456,7 @@ export const getPlatformFeesReport = async (req, res) => {
 
         // Aggregate platform charges by date
         const fees = await saleModel.aggregate([
-            { $match: { storeId: new ObjectId(storeId) } },
+            { $match: { storeId: new ObjectId(storeId), "items.itemId": { $in: items.map(i => i._id) } } },
             {
                 $group: {
                     _id: {
@@ -501,11 +485,11 @@ export const getTodayCostReport = async (req, res) => {
     reqInfo(req);
     let { user } = req.headers;
     try {
+        const { start: startOfToday, end: endOfToday } = getStartAndEndOfDay(new Date());
         let itemsData = [];
         if(user.role === ROLES.ADMIN || user.role === ROLES.SALESMAN){
             itemsData = await itemModel.find({ isDeleted: false, storeId: new ObjectId(user.storeId) }).select('_id').lean();
         }
-        const { start: startOfToday, end: endOfToday } = getStartAndEndOfDay(new Date());
         const sales = await saleModel.aggregate([
             { $match: { date: { $gte: startOfToday, $lte: endOfToday }, "items.itemId": { $in: itemsData.map(i => i._id) } } },
             { $unwind: "$items" },
@@ -521,7 +505,7 @@ export const getTodayCostReport = async (req, res) => {
 
         // Get cost per unit for each item
         const itemIds = sales.map(s => s._id);
-        const items = await itemModel.find({ _id: { $in: itemIds } }).lean();
+        const items = await itemModel.find({ _id: { $in: itemIds }, isDeleted: false, storeId: new ObjectId(user.storeId) }).lean();
 
         // Get today's added stock for each item
         const stocks = await stockModel.aggregate([
@@ -572,3 +556,54 @@ export const getTodayCostReport = async (req, res) => {
         return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
     }
 };
+
+// export const getCostReport = async (req, res) => {
+//     reqInfo(req);
+//     let { user } = req.headers;
+//     try {
+//         let itemsData = [];
+//         if(user.role === ROLES.ADMIN || user.role === ROLES.SALESMAN){
+//             itemsData = await itemModel.find({ isDeleted: false, storeId: new ObjectId(user.storeId) }).select('_id').lean();
+//         }
+//         const sales = await saleModel.aggregate([
+//             { $match: { "items.itemId": { $in: itemsData.map(i => i._id) } } },
+//             { $unwind: "$items" },
+//             {
+//                 $group: {
+//                     _id: "$items.itemId",
+//                     itemName: { $first: "$items.itemName" },
+//                     totalQty: { $sum: "$items.quantityGram" },
+//                     totalCost: { $sum: "$items.totalPrice" }
+//                 }
+//             }
+//         ]);
+
+//         // Get cost per unit for each item
+//         const itemIds = sales.map(s => s._id);
+//         const items = await itemModel.find({ _id: { $in: itemIds } }).lean();
+
+//         const report = sales.map(sale => {
+//             const item = items.find(i => i._id.toString() === sale._id.toString());
+//             let costPerUnit = 0;
+//             let wtOrQty = '';
+//             if (item.pricingType === 'weight') {
+//                 costPerUnit = item.perKgCost;
+//                 wtOrQty = `${sale.totalQty} g`;
+//             } else {
+//                 costPerUnit = item['perItemCost'];
+//                 wtOrQty = `${sale.totalQty} pcs`;
+//             }
+//             return {
+//                 item: sale.itemName,
+//                 wtOrQty,
+//                 cost: `${costPerUnit}`,
+//                 total: `${sale.totalCost}`
+//             };
+//         });
+
+//         return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("cost report"), report, {}, {}));
+//     } catch (error) {
+//         console.log(error);
+//         return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
+//     }
+// };
