@@ -8,6 +8,7 @@ import { authRoutes } from './auth'
 import { storeRoutes } from './store'
 import { salesmanRoutes } from './salesman'
 import { adminJWT } from '../helper'
+import platformFeeRoutes from './platformFee'
 
 const router = Router()
 
@@ -20,5 +21,6 @@ router.use('/sale', saleRoutes)
 router.use('/upload', uploadRouter)
 router.use('/store', storeRoutes)
 router.use('/salesman', salesmanRoutes)
+router.use('/platform-fee', platformFeeRoutes)
 
 export { router }
