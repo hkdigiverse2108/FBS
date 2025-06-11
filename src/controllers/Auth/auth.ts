@@ -82,8 +82,8 @@ export const login = async (req, res) => { //email or password // phone or passw
     reqInfo(req)
     let body = req.body, response: any
     try {
-        response = await userModel.findOne({ phoneNumber: body?.phoneNumber, isDeleted: false }).lean()
-        if (!response) response = await salesmanModel.findOne({ loginId: body?.phoneNumber, isDeleted: false }).lean()
+        response = await salesmanModel.findOne({ loginId: body?.phoneNumber, isDeleted: false }).lean()
+        if (!response) response = await userModel.findOne({ phoneNumber: body?.phoneNumber, isDeleted: false }).lean()
         
         if (!response) return res.status(400).json(new apiResponse(400, responseMessage?.invalidUserPasswordPhoneNumber, {}, {}, {}))
         if (response?.isBlock == true) return res.status(403).json(new apiResponse(403, responseMessage?.accountBlock, {}, {}, {}))
@@ -114,6 +114,7 @@ export const login = async (req, res) => { //email or password // phone or passw
         return res.status(200).json(new apiResponse(200, responseMessage?.loginSuccess, response, {}, {}))
 
     } catch (error) {
+        console.log(error);
         return res.status(500).json(new apiResponse(500, responseMessage?.internalServerError, {}, error, {}))
     }
 }
