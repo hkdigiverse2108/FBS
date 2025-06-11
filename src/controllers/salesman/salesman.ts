@@ -73,16 +73,18 @@ export const getAllSalesman = async (req, res) => {
     try {
         match.isDeleted = false;
 
+        if (user?.role === ROLES.ADMIN) {
+            match.storeId = new ObjectId(user?.storeId)
+        }
+
         if (user?.userType === ROLES.SALESMAN) {
             match._id = new ObjectId(user?._id)
         }
 
         if (search) {
             match.$or = [
-                { firstName: { $regex: search, $options: 'i' } },
-                { lastName: { $regex: search, $options: 'i' } },
-                { email: { $regex: search, $options: 'i' } },
-                { "contact.mobile": { $regex: search, $options: 'i' } }
+                { name: { $regex: search, $options: 'i' } },
+                { phoneNumber: { $regex: search, $options: 'i' } }
             ]
         }
 
@@ -106,7 +108,6 @@ export const getAllSalesman = async (req, res) => {
                 data_count: [{ $count: "count" }]
             }
         }
-
 
         response = await salesmanModel.aggregate([
             { $match: match },
