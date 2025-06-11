@@ -535,7 +535,7 @@ export const getTodayCostReport = async (req, res) => {
         }
 
         const sales = await saleModel.aggregate([
-            { $match: { date: { $gte: startOfToday, $lte: endOfToday }, "items.itemId": { $in: itemsData.map(i => i._id) } } },
+            { $match: match },
             { $unwind: "$items" },
             {
                 $group: {
