@@ -520,7 +520,6 @@ export const getTodayCostReport = async (req, res) => {
     let { user } = req.headers, match: any = {}, { dateFilter } = req.query;
     try {
         const { start: startOfToday, end: endOfToday } = getStartAndEndOfDay(new Date());
-        let itemsData = [];
         if (user.role === ROLES.ADMIN) {
             match.storeId = new ObjectId(user.storeId);
         }

@@ -1,4 +1,4 @@
-import { apiResponse } from "../../common";
+import { apiResponse, ROLES } from "../../common";
 import { itemModel, saleModel, stockModel } from "../../database";
 import { reqInfo, responseMessage } from "../../helper";
 
@@ -16,7 +16,7 @@ const getStartAndEndOfDay = (date) => {
 const getOrCreateTodayStock = async (itemId, user) => {
     const today = new Date();
     const { start: startOfToday, end: endOfToday } = getStartAndEndOfDay(today);
-
+    console.log('Start and End of Today:', { startOfToday, endOfToday });
     let todayStock = await stockModel.findOne({
         itemId: new ObjectId(itemId),
         date: {
@@ -73,6 +73,7 @@ export const removeStock = async (req, res) => {
     let { itemId, removeGram } = req.body, { user } = req.headers;
     try {
         const todayStock: any = await getOrCreateTodayStock(itemId, user);
+        
         todayStock.storeId = new ObjectId(user.storeId);
         todayStock.userId = new ObjectId(user._id);
 
@@ -131,8 +132,20 @@ export const getStock = async (req, res) => {
 
 export const getCurrentStock = async (req, res) => {
     reqInfo(req);
-    let { user } = req.headers;
+    let { user } = req.headers, { search } = req.query;
     try {
+        let match: any = {};
+
+        if (user.role === ROLES.ADMIN || user.role === ROLES.SALESMAN) {
+            match.storeId = new ObjectId(user.storeId);
+        }
+
+        if (search) {
+            match.$or = [
+                { "item.name": { $regex: search, $options: 'i' } },
+            ]
+        }
+
         const stocks = await stockModel.aggregate([
             {
                 $match: {
@@ -202,9 +215,9 @@ export const editStock = async (req, res) => {
         let previousClosingStock = stock.closingStock;
         for (const subsequentStock of subsequentStocks) {
             subsequentStock.openingStock = previousClosingStock;
-            subsequentStock.closingStock = Number(subsequentStock.openingStock) + 
-                                         Number(subsequentStock.addedStock) - 
-                                         Number(subsequentStock.removedStock);
+            subsequentStock.closingStock = Number(subsequentStock.openingStock) +
+                Number(subsequentStock.addedStock) -
+                Number(subsequentStock.removedStock);
             previousClosingStock = subsequentStock.closingStock;
             await subsequentStock.save();
         }
@@ -248,9 +261,9 @@ export const deleteStock = async (req, res) => {
         let previousClosingStock = previousStock ? previousStock.closingStock : 0;
         for (const subsequentStock of subsequentStocks) {
             subsequentStock.openingStock = previousClosingStock;
-            subsequentStock.closingStock = Number(subsequentStock.openingStock) + 
-                                         Number(subsequentStock.addedStock) - 
-                                         Number(subsequentStock.removedStock);
+            subsequentStock.closingStock = Number(subsequentStock.openingStock) +
+                Number(subsequentStock.addedStock) -
+                Number(subsequentStock.removedStock);
             previousClosingStock = subsequentStock.closingStock;
             await subsequentStock.save();
         }
@@ -279,7 +292,7 @@ export const checkStockAvailability = async (req, res) => {
         });
 
         const item = await itemModel.findOne({ _id: new ObjectId(id), isDeleted: false });
-        
+
         if (!item) {
             return res.status(400).json(new apiResponse(400, responseMessage.getDataNotFound("item"), {}, {}, {}));
         }
