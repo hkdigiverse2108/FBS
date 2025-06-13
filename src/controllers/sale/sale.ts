@@ -479,7 +479,7 @@ export const getPlatformFeesReport = async (req, res) => {
         if (user.role === ROLES.ADMIN) {
             match.storeId = new ObjectId(user.storeId);
         }
-
+        
         if (user.role === ROLES.SALESMAN) {
             match.userId = new ObjectId(user._id);
             match.storeId = new ObjectId(user.storeId);

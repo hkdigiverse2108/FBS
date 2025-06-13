@@ -91,8 +91,17 @@ export const getItems = async (req, res) => {
                     {
                         $lookup: {
                             from: "stocks",
-                            localField: "_id",
-                            foreignField: "itemId",
+                            let: { itemId: "$_id" },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: { $eq: ["$itemId", "$$itemId"] },
+                                        isDeleted: false
+                                    }
+                                },
+                                { $sort: { date: -1 } },
+                                { $limit: 1 }
+                            ],
                             as: "stock"
                         }
                     },
@@ -109,8 +118,17 @@ export const getItems = async (req, res) => {
                     {
                         $lookup: {
                             from: "stocks",
-                            localField: "_id",
-                            foreignField: "itemId",
+                            let: { itemId: "$_id" },
+                            pipeline: [
+                                {
+                                    $match: {
+                                        $expr: { $eq: ["$itemId", "$$itemId"] },
+                                        isDeleted: false
+                                    }
+                                },
+                                { $sort: { date: -1 } },
+                                { $limit: 1 }
+                            ],
                             as: "stock"
                         }
                     },
