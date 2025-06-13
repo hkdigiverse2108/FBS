@@ -84,10 +84,10 @@ export const login = async (req, res) => { //email or password // phone or passw
     try {
         response = await salesmanModel.findOne({ loginId: body?.phoneNumber, isDeleted: false }).lean()
         if (!response) response = await userModel.findOne({ phoneNumber: body?.phoneNumber, isDeleted: false }).lean()
-        
+
         if (!response) return res.status(400).json(new apiResponse(400, responseMessage?.invalidUserPasswordPhoneNumber, {}, {}, {}))
         if (response?.isBlock == true) return res.status(403).json(new apiResponse(403, responseMessage?.accountBlock, {}, {}, {}))
-        
+
         if (response?.role !== ROLES.SALESMAN) {
             const passwordMatch = await bcryptjs.compare(body.password, response.password)
             if (!passwordMatch) return res.status(400).json(new apiResponse(400, responseMessage?.invalidUserPasswordPhoneNumber, {}, {}, {}))
@@ -150,17 +150,24 @@ export const forgot_password = async (req, res) => {
 export const reset_password = async (req, res) => {
     reqInfo(req)
     let body = req.body,
-        { email } = body;
+        { loginId } = body;
 
     try {
 
-        const salt = await bcryptjs.genSaltSync(10)
-        const hashPassword = await bcryptjs.hash(body.password, salt)
-        delete body.password
-        delete body.id
-        body.password = hashPassword
+        let response: any = await salesmanModel.findOne({ loginId: body?.loginId, isDeleted: false })
+        if (!response) response = await userModel.findOne({ email: body?.loginId, isDeleted: false })
 
-        let response = await userModel.findOneAndUpdate({ email: body?.email, isDeleted: false }, body, { new: true })
+        if (response?.role === ROLES.ADMIN) {
+            const salt = await bcryptjs.genSaltSync(10)
+            const hashPassword = await bcryptjs.hash(body.password, salt)
+            delete body.password
+            delete body.id
+            body.password = hashPassword
+        }
+
+        let user = await salesmanModel.findOneAndUpdate({ email: body?.loginId, isDeleted: false }, body, { new: true })
+        if (!user) user = await userModel.findOneAndUpdate({ loginId: body?.loginId, isDeleted: false }, body, { new: true })
+
         if (response) {
             return res.status(200).json(new apiResponse(200, responseMessage?.resetPasswordSuccess, response, {}, {}))
         }

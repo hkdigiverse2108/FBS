@@ -569,7 +569,7 @@ export const getTodayCostReport = async (req, res) => {
                     addedStockToday: 1,
                     pricingType: "$item.pricingType",
                     perKgPrice: "$item.perKgPrice",
-                    perItemPrice: "$item.perItemPrice"
+                    perItemCost: "$item.perItemCost"
                 }
             }
         ]);
@@ -583,8 +583,9 @@ export const getTodayCostReport = async (req, res) => {
                 cost = entry.perKgPrice || 0;
                 wtOrQty = entry.addedStockToday;
                 total = cost * (entry.addedStockToday || 0);
+                total = total >= 1000 ? (total / 1000): total
             } else {
-                cost = entry.perItemPrice || 0;
+                cost = entry.perItemCost || 0;
                 wtOrQty = entry.addedStockToday;
                 total = cost * (entry.addedStockToday || 0);
             }
@@ -592,7 +593,7 @@ export const getTodayCostReport = async (req, res) => {
                 item: entry.itemName,
                 wtOrQty,
                 cost: `${cost}`,
-                total: `${total >= 1000 ? (total / 1000): total}`
+                total: total
             };
         });
 
