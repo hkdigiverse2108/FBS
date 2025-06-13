@@ -583,7 +583,6 @@ export const getTodayCostReport = async (req, res) => {
                 cost = entry.perKgCostPerGram || 0;
                 wtOrQty = entry.addedStockToday;
                 total = cost * (entry.addedStockToday || 0);
-                total = total >= 1000 ? (total / 1000): total
             } else {
                 cost = entry.perItemCost || 0;
                 wtOrQty = entry.addedStockToday;
