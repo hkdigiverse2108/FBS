@@ -73,7 +73,7 @@ export const removeStock = async (req, res) => {
     let { itemId, removeGram } = req.body, { user } = req.headers;
     try {
         const todayStock: any = await getOrCreateTodayStock(itemId, user);
-        
+
         todayStock.storeId = new ObjectId(user.storeId);
         todayStock.userId = new ObjectId(user._id);
 
@@ -146,12 +146,11 @@ export const getCurrentStock = async (req, res) => {
             ]
         }
 
+        match.isDeleted = false;
+
         const stocks = await stockModel.aggregate([
             {
-                $match: {
-                    storeId: new ObjectId(user.storeId),
-                    isDeleted: false
-                }
+                $match: match
             },
             {
                 $sort: {
@@ -175,7 +174,8 @@ export const getCurrentStock = async (req, res) => {
             },
             {
                 $unwind: "$item"
-            }
+            },
+            { $match: match }
         ]);
 
         return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("stocks"), stocks, {}, {}));
@@ -277,7 +277,10 @@ export const deleteStock = async (req, res) => {
 
 export const checkStockAvailability = async (req, res) => {
     reqInfo(req);
-    let { id } = req.params, { user } = req.headers;
+    let { id } = req.params;
+    let { inputType, value } = req.query;
+    let { user } = req.headers;
+    
     try {
         const today = new Date();
         const { start: startOfToday, end: endOfToday } = getStartAndEndOfDay(today);
@@ -297,33 +300,43 @@ export const checkStockAvailability = async (req, res) => {
             return res.status(400).json(new apiResponse(400, responseMessage.getDataNotFound("item"), {}, {}, {}));
         }
 
-        let stockInfo = {
-            isAvailable: false,
-            availableQuantity: todayStock ? todayStock.closingStock : 0,
-            itemId: id,
-            pricingType: item.pricingType,
-            stockDetails: {},
-            date: today
-        };
+        let isAvailable = false;
+        let quantityGram = 0;
+        let quantity = 0;
 
         if (item.pricingType === 'weight') {
-            stockInfo.stockDetails = {
-                availableInGrams: todayStock ? todayStock.closingStock : 0,
-                availableInKg: todayStock ? (todayStock.closingStock / 1000).toFixed(2) : "0.00",
-                perKgPrice: item.perKgPrice,
-                perKgCost: item.perKgCost
-            };
-            stockInfo.isAvailable = todayStock ? todayStock.closingStock > 0 : false;
+            const unitPrice = Number(item.perKgPrice) / 1000 || 0;
+
+            if (inputType === "weight") {
+                quantityGram = Number(value) || 0;
+            } else if (inputType === "price") {
+                const totalPrice = Number(value) || 0;
+                quantityGram = unitPrice ? totalPrice / unitPrice : 0;
+            } else {
+                return res.status(400).json(new apiResponse(400, "Invalid inputType for weight-based item", {}, {}, {}));
+            }
+
+            isAvailable = todayStock ? (todayStock.closingStock >= quantityGram) : false;
+        } else if (item.pricingType === 'fixed') {
+            const unitPrice = Number(item.perItemPrice) || 0;
+
+            if (inputType === "quantity") {
+                quantity = Number(value) || 0;
+            } else if (inputType === "price") {
+                const totalPrice = Number(value) || 0;
+                quantity = unitPrice ? totalPrice / unitPrice : 0;
+            } else {
+                return res.status(400).json(new apiResponse(400, "Invalid inputType for fixed-price item", {}, {}, {}));
+            }
+
+            isAvailable = todayStock ? (todayStock.closingStock >= quantity) : false;
         } else {
-            stockInfo.stockDetails = {
-                availableUnits: todayStock ? todayStock.closingStock : 0,
-                perItemPrice: item.perItemPrice,
-                perItemCost: item.perItemCost
-            };
-            stockInfo.isAvailable = todayStock ? todayStock.closingStock > 0 : false;
+            return res.status(400).json(new apiResponse(400, "Unknown pricingType", {}, {}, {}));
         }
 
-        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("today's stock availability"), stockInfo, {}, {}));
+        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("stock availability"), {
+            isAvailable: isAvailable
+        }, {}, {}));
     } catch (error) {
         console.log(error);
         return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
