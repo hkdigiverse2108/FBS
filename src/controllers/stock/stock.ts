@@ -132,6 +132,7 @@ export const getStock = async (req, res) => {
 export const getCurrentStock = async (req, res) => {
     reqInfo(req);
     let { user } = req.headers, { search } = req.query;
+    console.log("user =", user);
     try {
         let match: any = {};
 
@@ -146,7 +147,6 @@ export const getCurrentStock = async (req, res) => {
         }
 
         match.isDeleted = false;
-
         const stocks = await stockModel.aggregate([
             {
                 $match: match
@@ -174,7 +174,7 @@ export const getCurrentStock = async (req, res) => {
             {
                 $unwind: "$item"
             },
-            { $match: match }
+            // { $match: match }
         ]);
 
         return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("stocks"), stocks, {}, {}));
