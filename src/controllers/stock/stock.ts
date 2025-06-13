@@ -15,8 +15,7 @@ const getStartAndEndOfDay = (date) => {
 
 const getOrCreateTodayStock = async (itemId, user) => {
     const today = new Date();
-    const { start: startOfToday, end: endOfToday } = getStartAndEndOfDay(today);
-    console.log('Start and End of Today:', { startOfToday, endOfToday });
+    const { start: startOfToday, end: endOfToday } = getStartAndEndOfDay(today); 
     let todayStock = await stockModel.findOne({
         itemId: new ObjectId(itemId),
         date: {

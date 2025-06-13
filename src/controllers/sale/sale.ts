@@ -245,7 +245,6 @@ export const getSale = async (req, res) => {
 export const getSoldItems = async (req, res) => {
     reqInfo(req);
     let { user } = req.headers, { dateFilter } = req.query, match: any = {};
-
     try {
         if (user.role === ROLES.ADMIN) {
             match.storeId = new ObjectId(user.storeId);
@@ -257,7 +256,7 @@ export const getSoldItems = async (req, res) => {
         }
 
         if (dateFilter) {
-            match.date = { $gte: new Date(dateFilter), $lte: new Date(dateFilter) }
+            match.date = { $gte: new Date(dateFilter.start), $lte: new Date(dateFilter.end) }
         }
 
         const soldItems = await saleModel.aggregate([
@@ -307,7 +306,7 @@ export const getCollection = async (req, res) => {
         }
 
         if (dateFilter) {
-            match.date = { $gte: new Date(dateFilter), $lte: new Date(dateFilter) }
+            match.date = { $gte: new Date(dateFilter.start), $lte: new Date(dateFilter.end) }
         }
 
         const collection = await saleModel.aggregate([
@@ -374,7 +373,7 @@ export const getRemainingStock = async (req, res) => {
         }
 
         if (dateFilter) {
-            match.date = { $gte: new Date(dateFilter), $lte: new Date(dateFilter) }
+            match.date = { $gte: new Date(dateFilter.start), $lte: new Date(dateFilter.end) }
         }
 
         const remaining = await stockModel.aggregate([
@@ -424,7 +423,7 @@ export const getProfitReport = async (req, res) => {
         }
 
         if (dateFilter) {
-            match.date = { $gte: new Date(dateFilter), $lte: new Date(dateFilter) }
+            match.date = { $gte: new Date(dateFilter.start), $lte: new Date(dateFilter.end) }
         }
 
         const sales = await saleModel.aggregate([
@@ -446,6 +445,16 @@ export const getProfitReport = async (req, res) => {
 
         const report = sales.map(sale => {
             const item = items.find(i => i._id.toString() === sale._id.toString());
+            
+            // Add null check for item
+            if (!item) {
+                return {
+                    item: sale.itemName,
+                    profit: "0",
+                    profitPerKg: "0",
+                };
+            }
+
             let costPerGram = 0;
             let profit = 0;
             let profitPerKg = 0;
@@ -486,7 +495,7 @@ export const getPlatformFeesReport = async (req, res) => {
         }
 
         if (dateFilter) {
-            match.date = { $gte: new Date(dateFilter), $lte: new Date(dateFilter) }
+            match.date = { $gte: new Date(dateFilter.start), $lte: new Date(dateFilter.end) }
         }
 
         const fees = await saleModel.aggregate([
@@ -518,18 +527,24 @@ export const getPlatformFeesReport = async (req, res) => {
 
 export const getTodayCostReport = async (req, res) => {
     reqInfo(req);
-    let { user } = req.headers;
+    let { user } = req.headers, match: any = {}, { dateFilter } = req.query;
     try {
-        const today = new Date();
-        const { start: startOfToday, end: endOfToday } = getStartAndEndOfDay(today);
+        if (user.role === ROLES.ADMIN) {
+            match.storeId = new ObjectId(user.storeId);
+        }
+
+        if (user.role === ROLES.SALESMAN) {
+            match.userId = new ObjectId(user._id);
+            match.storeId = new ObjectId(user.storeId);
+        }
+
+        if (dateFilter) {
+            match.date = { $gte: new Date(dateFilter.start), $lte: new Date(dateFilter.end) }
+        }
 
         const todayAdded = await stockModel.aggregate([
             {
-                $match: {
-                    storeId: new ObjectId(user.storeId),
-                    date: { $gte: startOfToday, $lte: endOfToday },
-                    isDeleted: false
-                }
+                $match: match
             },
             {
                 $group: {
