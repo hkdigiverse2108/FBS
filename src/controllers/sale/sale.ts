@@ -568,7 +568,7 @@ export const getTodayCostReport = async (req, res) => {
                     itemName: "$item.name",
                     addedStockToday: 1,
                     pricingType: "$item.pricingType",
-                    perKgPrice: "$item.perKgPrice",
+                    perKgCostPerGram: "$item.perKgCostPerGram",
                     perItemCost: "$item.perItemCost"
                 }
             }
@@ -580,7 +580,7 @@ export const getTodayCostReport = async (req, res) => {
             let total = 0;
             let wtOrQty = "";
             if (entry.pricingType === "weight") {
-                cost = entry.perKgPrice || 0;
+                cost = entry.perKgCostPerGram || 0;
                 wtOrQty = entry.addedStockToday;
                 total = cost * (entry.addedStockToday || 0);
                 total = total >= 1000 ? (total / 1000): total
