@@ -132,7 +132,6 @@ export const getStock = async (req, res) => {
 export const getCurrentStock = async (req, res) => {
     reqInfo(req);
     let { user } = req.headers, { search } = req.query;
-    console.log("user =", user);
     try {
         let match: any = {};
 
