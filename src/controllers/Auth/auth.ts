@@ -154,8 +154,8 @@ export const reset_password = async (req, res) => {
 
     try {
 
-        let response: any = await salesmanModel.findOne({ loginId: body?.loginId, isDeleted: false })
-        if (!response) response = await userModel.findOne({ email: body?.loginId, isDeleted: false })
+        let response: any = await salesmanModel.findOne({ loginId: body?.loginId, isDeleted: false }).lean()
+        if (!response) response = await userModel.findOne({ phoneNumber: body?.loginId, isDeleted: false }).lean()
 
         if (response?.role === ROLES.ADMIN) {
             const salt = await bcryptjs.genSaltSync(10)
@@ -165,13 +165,11 @@ export const reset_password = async (req, res) => {
             body.password = hashPassword
         }
 
-        let user = await salesmanModel.findOneAndUpdate({ email: body?.loginId, isDeleted: false }, body, { new: true })
-        if (!user) user = await userModel.findOneAndUpdate({ loginId: body?.loginId, isDeleted: false }, body, { new: true })
+        let user = await salesmanModel.findOneAndUpdate({ loginId: body?.loginId, isDeleted: false }, body, { new: true })
+        if (!user) user = await userModel.findOneAndUpdate({ phoneNumber: body?.loginId, isDeleted: false }, body, { new: true })
 
-        if (response) {
-            return res.status(200).json(new apiResponse(200, responseMessage?.resetPasswordSuccess, response, {}, {}))
-        }
-        else return res.status(501).json(new apiResponse(501, responseMessage?.resetPasswordError, {}, {}, {}))
+        if (!response) return res.status(404).json(new apiResponse(404, responseMessage?.resetPasswordError, {}, {}, {}))
+        return res.status(200).json(new apiResponse(200, responseMessage?.resetPasswordSuccess, user, {}, {}))
 
     } catch (error) {
         console.log(error);
