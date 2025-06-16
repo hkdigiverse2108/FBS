@@ -182,7 +182,7 @@ export const deleteItem = async (req, res) => {
         const item = await itemModel.findOneAndUpdate({ _id: new ObjectId(id), isDeleted: false }, { isDeleted: true }, { new: true });
         if (!item) return res.status(404).json(new apiResponse(404, responseMessage.getDataNotFound("item"), {}, {}, {}))
 
-        await stockModel.findOneAndUpdate({ itemId: new ObjectId(id), isDeleted: false }, { isDeleted: true }, { new: true });
+        await stockModel.updateMany({ itemId: new ObjectId(id), isDeleted: false }, { isDeleted: true });
         return res.status(200).json(new apiResponse(200, responseMessage.deleteDataSuccess("item"), {}, {}, {}))
     } catch (error: any) {
         return res.status(400).json(new apiResponse(400, responseMessage.internalServerError, {}, error, {}));
