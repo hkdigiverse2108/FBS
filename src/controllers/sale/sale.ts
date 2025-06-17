@@ -409,77 +409,77 @@ export const getRemainingStock = async (req, res) => {
     }
 };
 
-export const getProfitReport = async (req, res) => {
-    reqInfo(req);
-    let { user } = req.headers, match: any = {}, { dateFilter } = req.query;
-    try {
-        if (user.role === ROLES.ADMIN) {
-            match.storeId = new ObjectId(user.storeId);
-        }
+// export const getProfitReport = async (req, res) => {
+//     reqInfo(req);
+//     let { user } = req.headers, match: any = {}, { dateFilter } = req.query;
+//     try {
+//         if (user.role === ROLES.ADMIN) {
+//             match.storeId = new ObjectId(user.storeId);
+//         }
 
-        if (user.role === ROLES.SALESMAN) {
-            match.userId = new ObjectId(user._id);
-            match.storeId = new ObjectId(user.storeId);
-        }
+//         if (user.role === ROLES.SALESMAN) {
+//             match.userId = new ObjectId(user._id);
+//             match.storeId = new ObjectId(user.storeId);
+//         }
 
-        if (dateFilter) {
-            match.date = { $gte: new Date(dateFilter.start), $lte: new Date(dateFilter.end) }
-        }
+//         if (dateFilter) {
+//             match.date = { $gte: new Date(dateFilter.start), $lte: new Date(dateFilter.end) }
+//         }
 
-        const sales = await saleModel.aggregate([
-            { $unwind: "$items" },
-            { $match: match },
-            {
-                $group: {
-                    _id: "$items.itemId",
-                    itemName: { $first: "$items.itemName" },
-                    totalQty: { $sum: "$items.quantityGram" },
-                    totalRevenue: { $sum: "$items.totalPrice" }
-                }
-            }
-        ]);
+//         const sales = await saleModel.aggregate([
+//             { $unwind: "$items" },
+//             { $match: match },
+//             {
+//                 $group: {
+//                     _id: "$items.itemId",
+//                     itemName: { $first: "$items.itemName" },
+//                     totalQty: { $sum: "$items.quantityGram" },
+//                     totalRevenue: { $sum: "$items.totalPrice" }
+//                 }
+//             }
+//         ]);
 
-        // Get cost per unit for each item
-        const itemIds = sales.map(s => s._id);
-        const items = await itemModel.find({ _id: { $in: itemIds }, isDeleted: false, storeId: new ObjectId(user.storeId) }).lean();
+//         // Get cost per unit for each item
+//         const itemIds = sales.map(s => s._id);
+//         const items = await itemModel.find({ _id: { $in: itemIds }, isDeleted: false, storeId: new ObjectId(user.storeId) }).lean();
 
-        const report = sales.map(sale => {
-            const item = items.find(i => i._id.toString() === sale._id.toString());
+//         const report = sales.map(sale => {
+//             const item = items.find(i => i._id.toString() === sale._id.toString());
             
-            // Add null check for item
-            if (!item) {
-                return {
-                    item: sale.itemName,
-                    profit: "0",
-                    profitPerKg: "0",
-                };
-            }
+//             // Add null check for item
+//             if (!item) {
+//                 return {
+//                     item: sale.itemName,
+//                     profit: "0",
+//                     profitPerKg: "0",
+//                 };
+//             }
 
-            let costPerGram = 0;
-            let profit = 0;
-            let profitPerKg = 0;
-            if (item.pricingType === 'weight') {
-                costPerGram = item.perKgCost / 1000;
-                profit = sale.totalRevenue - (costPerGram * sale.totalQty);
-                profitPerKg = profit / (sale.totalQty / 1000);
-            } else {
-                costPerGram = item['perItemCost'];
-                profit = sale.totalRevenue - (costPerGram * sale.totalQty);
-                profitPerKg = profit / sale.totalQty;
-            }
-            return {
-                item: sale.itemName,
-                profit: `${profit}`,
-                profitPerKg: `${profitPerKg}`
-            };
-        });
+//             let costPerGram = 0;
+//             let profit = 0;
+//             let profitPerKg = 0;
+//             if (item.pricingType === 'weight') {
+//                 costPerGram = item.perKgCost / 1000;
+//                 profit = sale.totalRevenue - (costPerGram * sale.totalQty);
+//                 profitPerKg = profit / (sale.totalQty / 1000);
+//             } else {
+//                 costPerGram = item['perItemCost'];
+//                 profit = sale.totalRevenue - (costPerGram * sale.totalQty);
+//                 profitPerKg = profit / sale.totalQty;
+//             }
+//             return {
+//                 item: sale.itemName,
+//                 profit: `${profit}`,
+//                 profitPerKg: `${profitPerKg}`
+//             };
+//         });
 
-        return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("profit report"), report, {}, {}));
-    } catch (error) {
-        console.log(error);
-        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
-    }
-};
+//         return res.status(200).json(new apiResponse(200, responseMessage.getDataSuccess("profit report"), report, {}, {}));
+//     } catch (error) {
+//         console.log(error);
+//         return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
+//     }
+// };
 
 export const getPlatformFeesReport = async (req, res) => {
     reqInfo(req);
@@ -524,85 +524,85 @@ export const getPlatformFeesReport = async (req, res) => {
     }
 };
 
-// export const getTodayCostReport = async (req, res) => {
-//     reqInfo(req);
-//     let { user } = req.headers, match: any = {}, { dateFilter } = req.query;
-//     try {
-//         if (user.role === ROLES.ADMIN) {
-//             match.storeId = new ObjectId(user.storeId);
-//         }
-
-//         if (user.role === ROLES.SALESMAN) {
-//             match.userId = new ObjectId(user._id);
-//             match.storeId = new ObjectId(user.storeId);
-//         }
-
-//         if (dateFilter) {
-//             match.date = { $gte: new Date(dateFilter.start), $lte: new Date(dateFilter.end) }
-//         }
-
-//         const todayAdded = await stockModel.aggregate([
-//             {
-//                 $match: match
-//             },
-//             {
-//                 $group: {
-//                     _id: "$itemId",
-//                     addedStockToday: { $sum: "$addedStock" }
-//                 }
-//             },
-//             {
-//                 $lookup: {
-//                     from: "items",
-//                     localField: "_id",
-//                     foreignField: "_id",
-//                     as: "item"
-//                 }
-//             },
-//             { $unwind: "$item" },
-//             {
-//                 $project: {
-//                     _id: 0,
-//                     itemId: "$_id",
-//                     itemName: "$item.name",
-//                     addedStockToday: 1,
-//                     pricingType: "$item.pricingType",
-//                     perKgCostPerGram: "$item.perKgCostPerGram",
-//                     perItemCost: "$item.perItemCost"
-//                 }
-//             }
-//         ]);
-
-//         // Calculate cost and total for each item
-//         const result = todayAdded.map(entry => {
-//             let cost = 0;
-//             let total = 0;
-//             let wtOrQty = "";
-//             if (entry.pricingType === "weight") {
-//                 cost = entry.perKgCostPerGram || 0;
-//                 wtOrQty = entry.addedStockToday;
-//                 total = cost * (entry.addedStockToday || 0);
-//             } else {
-//                 cost = entry.perItemCost || 0;
-//                 wtOrQty = entry.addedStockToday;
-//                 total = cost * (entry.addedStockToday || 0);
-//             }
-//             return {
-//                 item: entry.itemName,
-//                 wtOrQty,
-//                 cost: `${cost}`,
-//                 total: total
-//             };
-//         });
-
-//         return res.status(200).json(new apiResponse(200, "Today's added stock", result, {}, {}));
-//     } catch (error) {
-//         console.log(error);
-//         return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
-//     }
-// };
-
 export const getTodayCostReport = async (req, res) => {
+    reqInfo(req);
+    let { user } = req.headers, match: any = {}, { dateFilter } = req.query;
+    try {
+        if (user.role === ROLES.ADMIN) {
+            match.storeId = new ObjectId(user.storeId);
+        }
+
+        if (user.role === ROLES.SALESMAN) {
+            match.userId = new ObjectId(user._id);
+            match.storeId = new ObjectId(user.storeId);
+        }
+
+        if (dateFilter) {
+            match.date = { $gte: new Date(dateFilter.start), $lte: new Date(dateFilter.end) }
+        }
+
+        const todayAdded = await stockModel.aggregate([
+            {
+                $match: match
+            },
+            {
+                $group: {
+                    _id: "$itemId",
+                    addedStockToday: { $sum: "$addedStock" }
+                }
+            },
+            {
+                $lookup: {
+                    from: "items",
+                    localField: "_id",
+                    foreignField: "_id",
+                    as: "item"
+                }
+            },
+            { $unwind: "$item" },
+            {
+                $project: {
+                    _id: 0,
+                    itemId: "$_id",
+                    itemName: "$item.name",
+                    addedStockToday: 1,
+                    pricingType: "$item.pricingType",
+                    perKgCostPerGram: "$item.perKgCostPerGram",
+                    perItemCost: "$item.perItemCost"
+                }
+            }
+        ]);
+
+        // Calculate cost and total for each item
+        const result = todayAdded.map(entry => {
+            let cost = 0;
+            let total = 0;
+            let wtOrQty = "";
+            if (entry.pricingType === "weight") {
+                cost = entry.perKgCostPerGram || 0;
+                wtOrQty = entry.addedStockToday;
+                total = cost * (entry.addedStockToday || 0);
+            } else {
+                cost = entry.perItemCost || 0;
+                wtOrQty = entry.addedStockToday;
+                total = cost * (entry.addedStockToday || 0);
+            }
+            return {
+                item: entry.itemName,
+                wtOrQty,
+                cost: `${cost}`,
+                total: total
+            };
+        });
+
+        return res.status(200).json(new apiResponse(200, "Today's added stock", result, {}, {}));
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json(new apiResponse(500, responseMessage.internalServerError, {}, error, {}));
+    }
+};
+
+export const getProfitReport = async (req, res) => {
     reqInfo(req);
     let { user } = req.headers, match: any = {}, { dateFilter } = req.query;
     try {
@@ -660,31 +660,57 @@ export const getTodayCostReport = async (req, res) => {
             }
         ]);
 
-        // 3. Map addStock to a dictionary for quick lookup
+        // 3. Get available stock (closingStock) per item
+        const remaining = await stockModel.aggregate([
+            { $match: match },
+            { $sort: { date: -1 } },
+            {
+                $group: {
+                    _id: "$itemId",
+                    closingStock: { $first: "$addedStock" }
+                }
+            }
+        ]);
+        const remainingMap = {};
+        remaining.forEach(entry => {
+            remainingMap[entry._id.toString()] = entry.closingStock || 0;
+        });
+
+        // 4. Map addStock to a dictionary for quick lookup
         const addStockMap = {};
         addStock.forEach(entry => {
-            let addStockValue = 0;
+            let cost = 0;
             if (entry.pricingType === "weight") {
-                addStockValue = (entry.perKgCost / 1000 || 0) * (entry.totalAdded || 0);
+                cost = (entry.perKgCost / 1000 || 0);
             } else {
-                addStockValue = (entry.perItemCost || 0) * (entry.totalAdded || 0);
+                cost = (entry.perItemCost || 0);
             }
             addStockMap[entry._id.toString()] = {
                 totalAdded: entry.totalAdded,
-                cost: entry.pricingType === "weight"
-                    ? (entry.perKgCost / 1000 || 0)
-                    : (entry.perItemCost || 0)
+                cost,
+                pricingType: entry.pricingType
             };
         });
 
-        // 4. Combine results and output in requested format
+        // 5. Combine results and output in requested format
         const result = collection.map(col => {
-            const addStockEntry = addStockMap[col._id.toString()] || { totalAdded: 0, cost: 0 };
+            const addStockEntry = addStockMap[col._id.toString()] || { totalAdded: 0, cost: 0, pricingType: "weight" };
+            const availableStock = remainingMap[col._id.toString()] || 0;
+            const profit = col.totalCollection - (addStockEntry.cost * addStockEntry.totalAdded);
+            let profitPerKg = 0;
+            if (availableStock > 0) {
+                if (addStockEntry.pricingType === "weight") {
+                    profitPerKg = profit / (availableStock / 1000);
+                } else {
+                    profitPerKg = profit / availableStock;
+                }
+            }
             return {
                 item: col.itemName,
                 wtOrQty: col.wtOrQty,
-                cost: addStockEntry.cost,
-                total: col.totalCollection - (addStockEntry.cost * addStockEntry.totalAdded)
+                cost: addStockEntry.cost * availableStock,
+                total: profit,
+                profitPerKg: profitPerKg
             };
         });
 
