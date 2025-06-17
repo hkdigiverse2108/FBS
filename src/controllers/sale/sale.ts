@@ -524,7 +524,6 @@ export const getPlatformFeesReport = async (req, res) => {
     }
 };
 
-
 // export const getTodayCostReport = async (req, res) => {
 //     reqInfo(req);
 //     let { user } = req.headers, match: any = {}, { dateFilter } = req.query;
@@ -626,6 +625,7 @@ export const getTodayCostReport = async (req, res) => {
                 $group: {
                     _id: "$items.itemId",
                     itemName: { $first: "$items.itemName" },
+                    wtOrQty: { $sum: "$items.quantityGram" },
                     totalCollection: { $sum: "$items.totalPrice" }
                 }
             }
@@ -669,17 +669,22 @@ export const getTodayCostReport = async (req, res) => {
             } else {
                 addStockValue = (entry.perItemCost || 0) * (entry.totalAdded || 0);
             }
-            addStockMap[entry._id.toString()] = addStockValue;
+            addStockMap[entry._id.toString()] = {
+                totalAdded: entry.totalAdded,
+                cost: entry.pricingType === "weight"
+                    ? (entry.perKgCost / 1000 || 0)
+                    : (entry.perItemCost || 0)
+            };
         });
 
-        // 4. Combine results and calculate cost = collection - addStock
+        // 4. Combine results and output in requested format
         const result = collection.map(col => {
-            const addStockValue = addStockMap[col._id.toString()] || 0;
+            const addStockEntry = addStockMap[col._id.toString()] || { totalAdded: 0, cost: 0 };
             return {
                 item: col.itemName,
-                collection: col.totalCollection,
-                addStock: addStockValue,
-                cost: col.totalCollection - addStockValue
+                wtOrQty: col.wtOrQty,
+                cost: addStockEntry.cost,
+                total: col.totalCollection - (addStockEntry.cost * addStockEntry.totalAdded)
             };
         });
 
