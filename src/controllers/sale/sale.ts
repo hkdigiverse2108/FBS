@@ -709,7 +709,7 @@ export const getProfitReport = async (req, res) => {
                 item: col.itemName,
                 wtOrQty: col.wtOrQty,
                 cost: addStockEntry.cost * availableStock,
-                total: profit,
+                profit: profit,
                 profitPerKg: profitPerKg
             };
         });
